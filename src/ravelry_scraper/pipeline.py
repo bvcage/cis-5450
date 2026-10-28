@@ -13,15 +13,24 @@ logger = get_logger(module_filename)
 
 
 def run_full_pipeline():
-    # do stuff
-    print('something')
+    run_patterns_pipeline()
+    de_dup_errors()
+    de_dup_raw_data()
 
 
-def deduplicate_errors_jsonl():
+def de_dup_errors():
     deduplicate_jsonl(
         source_path=Path("data/failed/patterns.jsonl"),
-        key="endpoint",
-        time_col="timestamp"
+        de_dup_by="endpoint",
+        keep_last_by="timestamp"
+    )
+
+
+def de_dup_raw_data():
+    deduplicate_jsonl(
+        source_path=Path("data/raw/patterns.jsonl"),
+        de_dup_by="id",
+        keep_last_by="scraped_at"
     )
 
 

@@ -17,14 +17,14 @@ def append_to_jsonl(records: list, target: Path):
 def deduplicate_jsonl(
     source_path: Path,
     destination_path: Path = None,
-    key: str = "id",
-    time_col: str = "timestamp"
+    de_dup_by: str = "id",
+    keep_last_by: str = "timestamp"
 ):
     if not source_path.is_file(): return # TODO
 
     df = pd.read_json(source_path, lines=True)
 
-    df = df.sort_values(time_col).drop_duplicates(subset=[key], keep='last')
+    df = df.sort_values(keep_last_by).drop_duplicates(subset=[de_dup_by], keep='last')
 
     if destination_path:
         df.to_json(destination_path, orient="records", lines=True)
