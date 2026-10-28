@@ -3,7 +3,7 @@ import httpx
 import os
 from pathlib import Path
 
-from .exceptions import InvalidPayloadError
+from .exceptions import InvalidPayloadError, HTTPStatusError
 from .logger import get_logger
 
 load_dotenv()
@@ -29,6 +29,8 @@ class RavelryClient:
 
             try:
                 data = response.json()
+                logger.info(f"Successfully retrieved JSON from endpoint: {endpoint}")
+
                 return data
             except JSONDecodeError:
                 logger.warning("Response OK but not JSON")
@@ -36,7 +38,11 @@ class RavelryClient:
 
         except httpx.HTTPStatusError as err:
             logger.error(f"HTTP error [{err.response.status_code}] on endpoint: {endpoint}")
-            raise HTTPStatusError(code, f"Server returned error code for endpoint: {endpoint}")
+            raise HTTPStatusError(
+                endpoint=endpoint,
+                message=f"Server returned error code for endpoint: {endpoint}",
+                status_code=err.response.status_code,
+            )
         
         except err:
             logger.error(f"UNKNOWN ERROR on endpoint: {endpoint}")
