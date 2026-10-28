@@ -4,6 +4,7 @@ import json
 
 from .client import RavelryClient
 from .exceptions import RavelryScraperError
+from .jsonl_helpers import append_to_jsonl, deduplicate_jsonl
 from .logger import get_logger
 from .state import StateManager
 
@@ -11,21 +12,17 @@ module_filename = Path(__file__).stem
 logger = get_logger(module_filename)
 
 
-def append_to_jsonl(data_records: list, target_path: str, target_filename: str):
-    if not data_records: return
-
-    output_file = Path(f"data/{target_path}/{target_filename}.jsonl")
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(output_file, "a", encoding="utf-8") as file:
-        for record in data_records:
-            json_string = json.dumps(record)
-            file.write(json_string + "\n")
-
-
 def run_full_pipeline():
     # do stuff
     print('something')
+
+
+def deduplicate_errors_jsonl():
+    deduplicate_jsonl(
+        source_path=Path("data/failed/patterns.jsonl"),
+        key="endpoint",
+        time_col="timestamp"
+    )
 
 
 def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
@@ -69,8 +66,8 @@ def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
 
             state.update_checkpoint("patterns", last_id)
 
-            if patterns: append_to_jsonl(patterns, "raw", "patterns")
-            if errors: append_to_jsonl(errors, "failed", "patterns")
+            if patterns: append_to_jsonl(patterns, Path("data/raw/patterns.jsonl"))
+            if errors: append_to_jsonl(errors, Path("data/failed/patterns.jsonl"))
 
 
     end_time = datetime.now(UTC)
