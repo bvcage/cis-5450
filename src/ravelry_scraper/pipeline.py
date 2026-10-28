@@ -28,32 +28,44 @@ def run_full_pipeline():
     print('something')
 
 
-def run_patterns_pipeline(batch_size=1):
+def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
     client = RavelryClient()
     state = StateManager()
 
-    last_id = state.get_cursor("patterns")
+    batch_size = min(max_count, batch_size)
 
-    patterns = []
-    errors = []
+    consecutive_error_count = 0
+    total_count = 0
 
-    try:
-        for id in range(last_id + 1, last_id + batch_size + 1):
-            endpoint = f"/patterns/{id}.json"
+    while total_count < max_count and consecutive_error_count < 100:
+        patterns = []
+        errors = []
 
-            try:
-                data = client.fetch_endpoint(endpoint)
-                pattern = data['pattern']
-                
-                patterns.append(pattern | { 'scraped_at': datetime.now(UTC).isoformat() })
+        last_id = state.get_cursor("patterns")
+        num_ids = min(max_count - total_count, batch_size)
 
-            except RavelryScraperError as err:
-                errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
+        try:
+            for id in range(last_id + 1, last_id + num_ids + 1):
+                endpoint = f"/patterns/{id}.json"
 
-            finally:
-                last_id = id
-    finally:
-        state.update_checkpoint("patterns", last_id)
+                try:
+                    data = client.fetch_endpoint(endpoint)
+                    pattern = data['pattern']
 
-        if patterns: append_to_jsonl(patterns, "raw", "patterns")
-        if errors: append_to_jsonl(errors, "failed", "patterns")
+                    patterns.append(pattern | { 'scraped_at': datetime.now(UTC).isoformat() })
+                    consecutive_error_count = 0
+
+                except RavelryScraperError as err:
+                    consecutive_error_count+= 1
+                    errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
+
+                finally:
+                    total_count += 1
+                    last_id = id
+        finally:
+            state.update_checkpoint("patterns", last_id)
+
+            if patterns: append_to_jsonl(patterns, "raw", "patterns")
+            if errors: append_to_jsonl(errors, "failed", "patterns")
+
+            logger.info(f"Scrape complete for {total_count} patterns.")
