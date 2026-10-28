@@ -4,7 +4,7 @@ import json
 
 from .client import RavelryClient
 from .exceptions import RavelryScraperError
-from .jsonl_helpers import append_to_jsonl, deduplicate_jsonl
+from .helpers.jsonl import append_to_jsonl, deduplicate_jsonl
 from .logger import get_logger
 from .state import StateManager
 
