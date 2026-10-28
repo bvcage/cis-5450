@@ -29,6 +29,8 @@ def run_full_pipeline():
 
 
 def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
+    start_time = datetime.now(UTC)
+
     client = RavelryClient()
     state = StateManager()
 
@@ -63,9 +65,15 @@ def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
                     total_count += 1
                     last_id = id
         finally:
+            logger.info("Saving batch results & updating checkpoint...")
+
             state.update_checkpoint("patterns", last_id)
 
             if patterns: append_to_jsonl(patterns, "raw", "patterns")
             if errors: append_to_jsonl(errors, "failed", "patterns")
 
-            logger.info(f"Scrape complete for {total_count} patterns.")
+
+    end_time = datetime.now(UTC)
+
+    logger.info(f"Scrape complete for {total_count} patterns.")
+    logger.info(f"Elapsed time: {str(end_time - start_time)}")
