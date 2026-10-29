@@ -31,11 +31,11 @@ class StateManager:
         return self.state.get(category, {}).get(primary_key, 0)
 
     
-    def update_checkpoint(self, category: str, max_id: int):
-        self.state[category] = {
-            "max_id": max_id,
-            "updated_at": datetime.now(UTC).isoformat(),
-        }
+    def update_checkpoint(self, category: str, state_changes: dict, replace=False):
+        if replace:
+            self.state[category] = state_changes | { "updated_at": datetime.now(UTC).isoformat() }
+        else:
+            self.state[category] = self.state[category] | state_changes | { "updated_at": datetime.now(UTC).isoformat() }
 
         temp_path = self.path.with_suffix(".tmp")
         with open(temp_path, "w", encoding="utf-8") as file:

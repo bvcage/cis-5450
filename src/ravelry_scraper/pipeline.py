@@ -50,6 +50,7 @@ def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
         errors = []
 
         last_id = state.get_cursor("patterns")
+        last_successful_id = state.get_cursor("patterns", "max_successful_id")
         num_ids = min(max_count - total_count, batch_size)
 
         try:
@@ -62,6 +63,7 @@ def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
 
                     patterns.append(pattern | { 'scraped_at': datetime.now(UTC).isoformat() })
                     consecutive_error_count = 0
+                    last_successful_id = id
 
                 except RavelryScraperError as err:
                     consecutive_error_count+= 1
@@ -73,7 +75,10 @@ def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
         finally:
             logger.info("Saving batch results & updating checkpoint...")
 
-            state.update_checkpoint("patterns", last_id)
+            state.update_checkpoint("patterns", {
+                "max_successful_id": last_successful_id,
+                "max_id": last_id,
+            })
 
             if patterns: append_to_jsonl(patterns, Path("data/raw/patterns.jsonl"))
             if errors: append_to_jsonl(errors, Path("data/failed/patterns.jsonl"))
