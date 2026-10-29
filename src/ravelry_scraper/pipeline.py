@@ -69,9 +69,12 @@ def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
                     consecutive_error_count+= 1
                     errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
 
-                finally:
-                    total_count += 1
-                    last_id = id
+                    if isinstance(err, RequestError):
+                        logger.error(f"Stopping scrape after request failure on endpoint: {endpoint}\nLeaving checkpoint at {last_id} for retry.")
+                        return
+
+                total_count += 1
+                last_id = id
         finally:
             logger.info("Saving batch results & updating checkpoint...")
 
