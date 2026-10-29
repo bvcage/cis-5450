@@ -1,9 +1,10 @@
 from dotenv import load_dotenv
+from json import JSONDecodeError
 import httpx
 import os
 from pathlib import Path
 
-from .exceptions import InvalidPayloadError, HTTPStatusError
+from .exceptions import InvalidPayloadError, HTTPStatusError, RequestError
 from .logger import get_logger
 
 load_dotenv()
@@ -42,8 +43,19 @@ class RavelryClient:
                 endpoint=endpoint,
                 message=f"Server returned error code for endpoint: {endpoint}",
                 status_code=err.response.status_code,
+            ) from err
+
+        except httpx.RequestError as err:
+            logger.exception(
+                "Request failed [%s] on endpoint: %s",
+                type(err).__name__,
+                endpoint,
             )
-        
+            raise RequestError(
+                endpoint=endpoint,
+                cause=err
+            ) from err
+
         except err:
             logger.error(f"UNKNOWN ERROR on endpoint: {endpoint}")
-            raise err
+            raise

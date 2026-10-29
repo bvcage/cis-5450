@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 
 from .client import RavelryClient
-from .exceptions import RavelryScraperError
+from .exceptions import RavelryScraperError, RequestError
 from .helpers.jsonl import append_to_jsonl, deduplicate_jsonl
 from .logger import get_logger
 from .state import StateManager
@@ -75,13 +75,13 @@ def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
         finally:
             logger.info("Saving batch results & updating checkpoint...")
 
+            if patterns: append_to_jsonl(patterns, Path("data/raw/patterns.jsonl"))
+            if errors: append_to_jsonl(errors, Path("data/failed/patterns.jsonl"))
+            
             state.update_checkpoint("patterns", {
                 "max_successful_id": last_successful_id,
                 "max_id": last_id,
             })
-
-            if patterns: append_to_jsonl(patterns, Path("data/raw/patterns.jsonl"))
-            if errors: append_to_jsonl(errors, Path("data/failed/patterns.jsonl"))
 
 
     end_time = datetime.now(UTC)
