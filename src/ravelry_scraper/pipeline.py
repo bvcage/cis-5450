@@ -90,4 +90,6 @@ def run_patterns_pipeline(max_count=10_000, batch_size=1_000):
     end_time = datetime.now(UTC)
 
     logger.info(f"Scrape complete for {total_count} patterns.")
+    logger.info(f"Began at: {start_time.astimezone().strftime('%Y-%m-%d @ %I:%M:%S %p')}")
+    logger.info(f"Ended at: {end_time.astimezone().strftime('%Y-%m-%d @ %I:%M:%S %p')}")
     logger.info(f"Elapsed time: {str(end_time - start_time)}")
