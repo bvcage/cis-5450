@@ -35,7 +35,8 @@ class StateManager:
         if replace:
             self.state[category] = state_changes | { "updated_at": datetime.now(UTC).isoformat() }
         else:
-            self.state[category] = self.state[category] | state_changes | { "updated_at": datetime.now(UTC).isoformat() }
+            existing_state = self.state[category] if category in self.state else {}
+            self.state[category] = existing_state | state_changes | { "updated_at": datetime.now(UTC).isoformat() }
 
         temp_path = self.path.with_suffix(".tmp")
         with open(temp_path, "w", encoding="utf-8") as file:

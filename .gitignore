@@ -1,6 +1,12 @@
 # dot files
 .*
 
+# data files
+*.jsonl
+
+# log files
+*.log
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

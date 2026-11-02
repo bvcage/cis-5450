@@ -2,6 +2,14 @@ import logging
 from datetime import datetime, UTC
 from pathlib import Path
 
+
+class RavelryLogger(logging.LoggerAdapter):
+    def log_duration(self, start_time: datetime, end_time: datetime, time_format = '%Y-%m-%d @ %I:%M:%S %p'):
+        self.info(f"Began at: {start_time.astimezone().strftime(time_format)}")
+        self.info(f"Ended at: {end_time.astimezone().strftime(time_format)}")
+        self.info(f"Elapsed time: {str(end_time - start_time)}")
+
+
 def get_logger(module_name: str) -> logging.Logger:
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
@@ -11,7 +19,7 @@ def get_logger(module_name: str) -> logging.Logger:
     logger = logging.getLogger(module_name)
 
     if logger.hasHandlers():
-        return logger
+        return RavelryLogger(logger, {})
 
     logger.setLevel(logging.INFO)
 
@@ -30,4 +38,4 @@ def get_logger(module_name: str) -> logging.Logger:
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
 
-    return logger
+    return RavelryLogger(logger, {})
