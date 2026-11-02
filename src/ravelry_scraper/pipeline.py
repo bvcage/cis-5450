@@ -77,7 +77,7 @@ def run_pipeline(category="patterns", max_count=10_000, batch_size=1_000):
                     last_successful_id = id
 
                 except RavelryScraperError as err:
-                    consecutive_error_count+= 1
+                    consecutive_error_count += 1
                     errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
 
                     if isinstance(err, RequestError):

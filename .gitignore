@@ -3,6 +3,7 @@
 
 # data files
 *.jsonl
+*.parquet
 
 # log files
 *.log
