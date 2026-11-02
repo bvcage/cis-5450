@@ -29,11 +29,13 @@ def google_drive_path(path: Path):
         
     return False
 
+
 def copy_to_google_drive_desktop(source_file: Path, destination_dir: Path):
     source_file = source_file.resolve()
     destination_dir = destination_dir.resolve()
 
     if not source_file.is_file(): return # TODO
+    if not destination_dir.is_dir(): return # TODO
     if not google_drive_path(destination_dir): return # TODO
 
     destination_dir.mkdir(parents=True, exist_ok=True)
