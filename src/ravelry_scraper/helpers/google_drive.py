@@ -1,48 +1,39 @@
 import shutil
-from pathlib import path
+from pathlib import Path
 
 
-def google_drive_path(path: Path) -> bool:
-    return True
-    # drive_roots = []
+def google_drive_paths():
+    cloud_storage_dir = Path.home() / "Library" / "CloudStorage"
 
-    # if os.name == "nt": 
-    #     drive_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Google/DriveFS"
-    # else:
-    #     drive_dir = Path.home() / "Library/Application Support/Google/DriveFS"
+    if not cloud_storage_dir.exists(): return None # TODO
 
-    # if not drive_dir.exists(): return False
+    drive_dirs = [
+        dir for dir in cloud_storage_dir.iterdir()
+        if dir.is_dir() and (
+            "googledrive" in dir.name.lower() \
+                or "google drive" in dir.name.lower()
+        )
+    ]
+    
+    return [Path(p).resolve() for p in set(drive_dirs) if p]
 
-    # google_drive_db_patterns = [
-    #     "root_preference_sqlite.db",
-    #     "*/root_preference_sqlite.db",
-    #     "*/metadata_sqlite.db",
-    # ]
 
-    # for pattern in google_drive_db_patterns:
-    #     for db_path in drive_dir.glob(pattern):
-    #         try:
-    #             conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=1.0)
-    #             cursor = conn.cursor()
+def google_drive_path(path: Path):
+    target = path.resolve()
+    
+    for google_drive_dir in google_drive_paths():
+        directory = google_drive_dir.resolve()
 
-    #             try:
-    #                 cursor.execute("SELECT local_path FROM root_preferences WHERE status = 1")
-    #                 paths = [row[0] for row in cursor.fetchall() if row[0]]
-    #                 drive_roots.extend(paths)
-    #             except sqlite3.OperationalError:
-    #                 pass  # Schema doesn't match this database type, skip to next check
-
-    #             conn.close()
-    #         except Exception:
-    #             continue
-
-    # # Clean and resolve path objects
-    # return [Path(p).resolve() for p in set(drive_roots) if p]
-
+        if target.is_relative_to(directory):
+            return True
+        
+    return False
 
 def copy_to_google_drive_desktop(source_file: Path, destination_dir: Path):
-    if not source_path.is_file(): return # TODO
+    source_file = source_file.resolve()
+    destination_dir = destination_dir.resolve()
 
+    if not source_file.is_file(): return # TODO
     if not google_drive_path(destination_dir): return # TODO
 
     destination_dir.mkdir(parents=True, exist_ok=True)
