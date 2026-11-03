@@ -45,7 +45,12 @@ def de_dup_raw_data(category="patterns"):
     )
 
 
-def run_pipeline(category="patterns", max_count=10_000, batch_size=1_000):
+def run_pipeline(
+    category="patterns",
+    max_count=10_000,
+    batch_size=1_000,
+    from_last_success=True,
+):
     start_time = datetime.now(UTC)
 
     client, state, logger = initialize_pipeline()
@@ -63,8 +68,10 @@ def run_pipeline(category="patterns", max_count=10_000, batch_size=1_000):
         last_successful_id = state.get_cursor(category, "max_successful_id")
         num_ids = min(max_count - total_count, batch_size)
 
+        id_range = range(last_successful_id + 1, last_successful_id + num_ids + 1) if from_last_success else range(last_id + 1, last_id + num_ids + 1)
+
         try:
-            for id in range(last_id + 1, last_id + num_ids + 1):
+            for id in id_range:
                 endpoint = f"/{category}/{id}.json"
 
                 try:
@@ -74,7 +81,7 @@ def run_pipeline(category="patterns", max_count=10_000, batch_size=1_000):
                     records.append(record | { 'scraped_at': datetime.now(UTC).isoformat() })
 
                     consecutive_error_count = 0
-                    last_successful_id = id
+                    last_successful_id = max(last_successful_id, id)
 
                 except RavelryScraperError as err:
                     consecutive_error_count += 1
@@ -85,7 +92,7 @@ def run_pipeline(category="patterns", max_count=10_000, batch_size=1_000):
                         return
 
                 total_count += 1
-                last_id = id
+                last_id = max(last_id, id)
         finally:
             logger.info("Saving batch results & updating checkpoint...")
 
@@ -100,5 +107,5 @@ def run_pipeline(category="patterns", max_count=10_000, batch_size=1_000):
 
     end_time = datetime.now(UTC)
 
-    logger.info(f"Scrape complete for {total_count} patterns.")
+    logger.info(f"Scrape complete for {total_count} {category}.")
     logger.log_duration(start_time, end_time)
