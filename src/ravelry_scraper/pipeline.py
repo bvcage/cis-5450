@@ -53,6 +53,8 @@ def run_pipeline(
 ):
     start_time = datetime.now(UTC)
 
+    if not category in ["patterns", "designers", "yarns"]: return # todo
+
     client, state, logger = initialize_pipeline()
 
     batch_size = min(max_count, batch_size)
@@ -87,6 +89,9 @@ def run_pipeline(
                     consecutive_error_count += 1
                     errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
 
+                    if consecutive_error_count >= 100:
+                        logger.info(f"Stopping scrape after {consecutive_error_count} consecutive errors.")
+                        return
                     if isinstance(err, RequestError):
                         logger.error(f"Stopping scrape after request failure on endpoint: {endpoint}\nLeaving checkpoint at {last_id} for retry.")
                         return
