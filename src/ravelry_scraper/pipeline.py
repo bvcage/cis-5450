@@ -7,6 +7,7 @@ from .exceptions import RavelryScraperError, RequestError
 from .helpers.jsonl import append_to_jsonl
 from .logger import get_logger
 from .state import StateManager
+from .transform import process_projects
 
 MODULE = Path(__file__).stem
 
@@ -21,6 +22,11 @@ def initialize_pipeline():
         state,
         logger,
     )
+
+
+def run_projects_pipeline(max_pages = None):
+    run_search_pipeline("projects")
+    process_projects()
 
 
 def run_pipeline(
@@ -92,3 +98,50 @@ def run_pipeline(
 
     logger.info(f"Scrape complete for {total_count} {category}.")
     logger.log_duration(start_time, end_time)
+
+
+def run_search_pipeline(
+    category="projects",
+    max_pages=10_000,
+):
+    if category not in ["projects"]: return # todo
+
+    start_time = datetime.now(UTC)
+    client, state, logger = initialize_pipeline()
+
+    endpoint = f"/{category}/search.json"
+    records = []
+    page_num = 1
+
+    consecutive_error_count = 0
+
+    while page_num <= max_pages and consecutive_error_count < 5:
+        try:
+            data = client.fetch_endpoint(endpoint, params={"page": page_num})
+            first_key = next(iter(data))
+            results = data[first_key]
+            for result in results:
+                records.append(result | { 'scraped_at': datetime.now(UTC).isoformat() })
+
+            if page_num == 1:
+                paginator = data['paginator']
+                if 'last_page' in paginator:
+                    max_pages = min(max_pages, paginator['last_page'])
+            
+            consecutive_error_count = 0
+        except RavelryScraperError as err:
+            consecutive_error_count += 1
+
+            if page_num > paginator['last_page']:
+                logger.info(f"Tried to scrape non-existent page number {page_num}: {paginator}")
+                return
+        finally:
+            page_num += 1
+            if records: append_to_jsonl(records, Path(f"data/raw/{category}.jsonl"))
+
+    end_time = datetime.now(UTC)
+
+    logger.info(f"Scrape complete for {category}.")
+    logger.log_duration(start_time, end_time)
+
+    logger.info(f"Deduping results for {category}...")
