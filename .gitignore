@@ -1,6 +1,13 @@
 # dot files
 .*
 
+# data files
+*.jsonl
+*.parquet
+
+# log files
+*.log
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
