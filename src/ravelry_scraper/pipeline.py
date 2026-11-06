@@ -4,7 +4,7 @@ import json
 
 from .client import RavelryClient
 from .exceptions import RavelryScraperError, RequestError
-from .helpers.jsonl import append_to_jsonl, deduplicate_jsonl
+from .helpers.jsonl import append_to_jsonl
 from .logger import get_logger
 from .state import StateManager
 
@@ -20,28 +20,6 @@ def initialize_pipeline():
         client,
         state,
         logger,
-    )
-
-
-def run_full_pipeline():
-    run_patterns_pipeline()
-    de_dup_errors()
-    de_dup_raw_data()
-
-
-def de_dup_errors(category="patterns"):
-    deduplicate_jsonl(
-        source_path=Path(f"data/failed/{category}.jsonl"),
-        de_dup_by="endpoint",
-        keep_last_by="timestamp"
-    )
-
-
-def de_dup_raw_data(category="patterns"):
-    deduplicate_jsonl(
-        source_path=Path(f"data/raw/{category}.jsonl"),
-        de_dup_by="id",
-        keep_last_by="scraped_at"
     )
 
 

@@ -5,8 +5,8 @@ from pathlib import Path
 from .logger import get_logger
 
 
-module_filename = Path(__file__).stem
-logger = get_logger(module_filename)
+MODULE = Path(__file__).stem
+logger = get_logger(MODULE)
 
 
 class StateManager:

@@ -9,8 +9,8 @@ from .logger import get_logger
 
 load_dotenv()
 
-module_filename = Path(__file__).stem
-logger = get_logger(module_filename)
+MODULE = Path(__file__).stem
+logger = get_logger(MODULE)
 
 class RavelryClient:
     def __init__(self):
@@ -22,7 +22,6 @@ class RavelryClient:
             timeout=10.0
         )
 
-
     def fetch_endpoint(self, endpoint: str, params: dict = None) -> dict:
         try:
             response = self.client.get(endpoint, params=params)
@@ -30,7 +29,7 @@ class RavelryClient:
 
             try:
                 data = response.json()
-                logger.info(f"Successfully retrieved JSON from endpoint: {endpoint}")
+                logger.info(f"Successfully retrieved JSON from endpoint: {str(response.url).replace(self.base_url, "")}")
 
                 return data
             except JSONDecodeError:
