@@ -1,5 +1,4 @@
 import json
-import inflect
 import numpy as np
 import pandas as pd
 from currency_converter import CurrencyConverter
@@ -7,7 +6,7 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 from .helpers.jsonl import append_to_jsonl, de_dup_jsonl
-from .helpers.strings import to_plural, to_singular
+from .helpers.strings import to_plural, to_singular, fraction_to_float
 from .logger import get_logger
 
 MODULE = Path(__file__).stem
@@ -70,9 +69,12 @@ def store_extracted(df, path):
     de_dup_jsonl(path)
 
 def extract_nested_data(series: pd.Series, category: str):
-    series = series.dropna()
     if isinstance(series.iloc[0], list): series = series.explode()
+    series = series.dropna()
     df = series.apply(pd.Series)
+    if category == 'pattern_needle_sizes':
+        for col in ['us','metric']:
+            df[col] = df[col].apply(fraction_to_float)
     store_extracted(df, Path(f"data/extracted/{category}.jsonl"))
 
 def get_ids(row, column, id='id'):
@@ -123,9 +125,8 @@ def process_pattern_chunk(chunk, c):
     chunk['price_usd'] = (chunk['price'] * chunk['currency'].map(rate_map)).round(2)
 
     # TODO handle pattern category parents?
-    # TODO 'pattern_needle_sizes',
     # extract nested data
-    extract_cols = ['languages', 'yarn_weight', 'craft', 'pattern_categories', 'pattern_attributes', 'pattern_type']
+    extract_cols = ['languages', 'yarn_weight', 'craft', 'pattern_categories', 'pattern_attributes', 'pattern_type', 'pattern_needle_sizes']
     extract_cols = [col for col in extract_cols if col in chunk.columns]
     for col in extract_cols:
         logger.info(f"Extracting data from {col}...")
