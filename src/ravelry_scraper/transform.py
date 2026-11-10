@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
+import polars as pl
 from currency_converter import CurrencyConverter
 from datetime import datetime, UTC
 from pathlib import Path
@@ -44,6 +45,8 @@ def process_patterns():
             orient='records',
             lines=True,
             mode='a',
+            date_format='epoch',
+            date_unit='ms',
         )
 
         break
@@ -56,6 +59,8 @@ def process_patterns():
 
 
 def store_extracted(df, path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+
     df = df.drop_duplicates()
     df['extracted_at'] = datetime.now(UTC)
 
@@ -64,9 +69,21 @@ def store_extracted(df, path):
         orient='records',
         lines=True,
         mode='a',
+        date_format='epoch',
+        date_unit='ms',
     )
 
     de_dup_jsonl(path)
+
+def extract_recursively(row: pd.Series, col: str, category: str):
+    if row is None or pd.isnull(row[col]): return # skip invalid rows
+
+    sub_record = row.get(col, None)
+    while not pd.isnull(sub_record):
+        sub_record[f'{col}_id'] = get_ids(row, col)
+        next_sub_record = sub_record.pop(col, None)
+        store_extracted(pd.DataFrame([sub_record]), Path(f"data/extracted/{category}.jsonl"))
+        sub_record = next_sub_record
 
 def extract_nested_data(series: pd.Series, category: str):
     if isinstance(series.iloc[0], list): series = series.explode()
@@ -75,6 +92,13 @@ def extract_nested_data(series: pd.Series, category: str):
     if category == 'pattern_needle_sizes':
         for col in ['us','metric']:
             df[col] = df[col].apply(fraction_to_float)
+    if category == 'pattern_categories':
+        try:
+            df['parent_id'] = df.apply(get_ids, axis=1, column='parent', id='id')
+            df.apply(extract_recursively, axis=1, col='parent', category=category)
+            df = df.drop(columns=['parent'])
+        except Exception as e:
+            breakpoint()
     store_extracted(df, Path(f"data/extracted/{category}.jsonl"))
 
 def get_ids(row, column, id='id'):
@@ -82,7 +106,7 @@ def get_ids(row, column, id='id'):
     if isinstance(value, list):
         return list(filter(None, map(lambda x: x[id] if id in x else np.nan, value)))
     else:
-        return value[id] if id in value else np.nan
+        return value[id] if isinstance(value, dict) and id in value else np.nan
 
 def get_count(row, column):
     items = row[column]
@@ -124,7 +148,6 @@ def process_pattern_chunk(chunk, c):
 
     chunk['price_usd'] = (chunk['price'] * chunk['currency'].map(rate_map)).round(2)
 
-    # TODO handle pattern category parents?
     # extract nested data
     extract_cols = ['languages', 'yarn_weight', 'craft', 'pattern_categories', 'pattern_attributes', 'pattern_type', 'pattern_needle_sizes']
     extract_cols = [col for col in extract_cols if col in chunk.columns]
@@ -257,6 +280,7 @@ def process_projects():
 
     raw_path = Path("data/raw/projects.jsonl")
     processed_path = Path("data/processed/projects.jsonl")
+    processed_path.parent.mkdir(parents=True, exist_ok=True)
 
     na_cols = []
     for chunk in pd.read_json(raw_path, lines=True, chunksize=100):
@@ -278,6 +302,8 @@ def process_projects():
             orient='records',
             lines=True,
             mode='a',
+            date_format='epoch',
+            date_unit='ms',
         )
 
     de_dup_jsonl(processed_path)

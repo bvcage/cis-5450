@@ -1,6 +1,5 @@
 import inflect
 import unicodedata
-from fractions import Fraction
 
 ie = inflect.engine()
 ie.defnoun('craft', 'crafts')
@@ -11,8 +10,7 @@ def to_singular(word: str):
 def to_plural(word: str):
     return ie.plural(word) if not ie.singular_noun(word) else word
 
-
-### For pattern_needle_sizes
+# used by pattern_needle_sizes
 def fraction_to_float(fraction: str):
     try:
         frac_val = unicodedata.numeric(fraction[-1])
