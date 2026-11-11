@@ -6,6 +6,7 @@ import pyarrow.parquet as pq
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+DATETIME_COLS = ["created_at", "extracted_at", "published", "scraped_at", "timestamp", "updated_at"]
 
 def append_to_jsonl(records: list, target: Path):
     if not records: return
@@ -25,11 +26,13 @@ def de_dup_jsonl(
 ):
     if not source_path.is_file(): return # todo
 
-    # for chunk in pd.read_json(source_path, lines=True, chunksize=1000):
-
+    overrides = dict()
+    for chunk in pd.read_json(source_path, lines=True, chunksize=1000):
+        overrides = {col: pl.Datetime for col in DATETIME_COLS if col in chunk.columns}
+        break
 
     df = (
-        pl.scan_ndjson(source_path)
+        pl.scan_ndjson(source_path, schema_overrides=overrides)
         .unique(subset=[de_dup_by], keep="last")
         .collect(engine="streaming")
     )

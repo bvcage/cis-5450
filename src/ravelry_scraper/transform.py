@@ -45,11 +45,8 @@ def process_patterns():
             orient='records',
             lines=True,
             mode='a',
-            date_format='epoch',
-            date_unit='ms',
+            date_format='iso',
         )
-
-        break
 
     de_dup_jsonl(processed_path)
     end_time = datetime.now(UTC)
@@ -69,8 +66,7 @@ def store_extracted(df, path):
         orient='records',
         lines=True,
         mode='a',
-        date_format='epoch',
-        date_unit='ms',
+        date_format='iso',
     )
 
     de_dup_jsonl(path)
@@ -168,111 +164,6 @@ def process_pattern_chunk(chunk, c):
     return chunk
 
 
-def process_pattern_attributes():
-    df = pd.read_json("data/raw/pattern_attributes.jsonl", lines=True)
-
-    # rename group columns
-    df = df.add_prefix('group_')
-
-    attr_col = 'group_pattern_attributes'
-    child_col = 'group_children'
-
-    depth = 1
-    max_depth = 10
-    while depth < max_depth:
-        # pattern_attributes
-        if isinstance(df[attr_col].dropna().iloc[0], list): df = df.explode(attr_col)
-        expanded = df[attr_col].apply(pd.Series).add_prefix(f'{attr_col}_')
-        df = pd.concat([df.drop(columns=[attr_col]), expanded], axis=1)
-
-        # children
-        if isinstance(df[child_col].dropna().iloc[0], list): df = df.explode(child_col)
-        expanded = df[child_col].apply(pd.Series).add_prefix(f'{child_col}_sub_group_')
-        df = pd.concat([df.drop(columns=[child_col]), expanded], axis=1)
-
-        attr_col = f'{child_col}_sub_group_pattern_attributes'
-        child_col = f'{child_col}_sub_group_children'
-
-        if not attr_col in df.columns: break
-        if not child_col in df.columns: break
-
-        depth += 1
-
-    drop_cols = [col for col in df.columns if col.endswith(('0', 'sort_order'))]
-    df = df.drop(columns=drop_cols)
-
-
-
-
-    df = pd.read_json("data/raw/pattern_attributes.jsonl", lines=True)
-    attrs = df.explode('pattern_attributes')
-    keep_cols = ['children', 'pattern_attributes']
-    drop_cols = [col for col in attrs.columns if col not in keep_cols]
-    attrs.drop(columns=drop_cols)
-
-
-
-
-
-    attr_col = 'group_pattern_attributes'
-    children_col = 'group_children'
-
-    # explode columns
-    def explode_and_replace(df, col):
-        df = df.explode(col)
-        attr_cols = df[col].apply(pd.Series).add_prefix(f'{col}_')
-        return pd.concat([df.drop(columns=[col]), attr_cols], axis=1)
-
-
-    col = ''
-
-
-    # explode pattern_attributes
-    
-    df = df.drop(columns=['sort_order'])
-
-    cols = df.columns.tolist()
-    main_cols = ['id','name']
-    group_cols = [col for col in cols if 'group' in col]
-    middle_cols = [col for col in cols if col not in main_cols and col not in group_cols]
-    cols = main_cols + middle_cols + group_cols
-
-    df = df[cols]
-
-    # iterate thru children
-
-    # explode children column
-    if isinstance(df['group_children_pattern_attributes'].dropna().iloc[0], list): df = df.explode('group_children')
-
-    sub_df = df['children'].apply(pd.Series)
-    if 0 in sub_df.columns: sub_df = sub_df.drop(columns=[0])
-    sub_df = sub_df.rename(columns={'id': 'group_id', 'name': 'group_name', 'permalink': 'group_permalink'})
-    
-
-    # explode pattern_attributes
-    sub_df = sub_df.explode('pattern_attributes')
-    attr_cols = sub_df['pattern_attributes'].apply(pd.Series)
-    sub_df = sub_df.add_prefix('sub_')
-    sub_df = pd.concat([sub_df, attr_cols], axis=1)
-    if 0 in sub_df.columns: sub_df = sub_df.drop(columns=[0])
-    
-    # drop cols
-    drop_cols = [col for col in [0, 'sort_order'] if col in sub_df.columns]
-    sub_df = sub_df.drop(columns=drop_cols)
-
-    cols = sub_df.columns.tolist()
-    main_cols = ['id','name']
-    group_cols = [col for col in cols if 'group' in col]
-    middle_cols = [col for col in cols if col not in main_cols and col not in group_cols]
-    cols = main_cols + middle_cols + group_cols
-
-    sub_df = sub_df[cols]
-
-
-
-    # iterate thru children
-
-
 def process_projects():
     start_time = datetime.now(UTC)
     logger = get_logger(MODULE)
@@ -302,8 +193,7 @@ def process_projects():
             orient='records',
             lines=True,
             mode='a',
-            date_format='epoch',
-            date_unit='ms',
+            date_format='iso',
         )
 
     de_dup_jsonl(processed_path)
@@ -320,6 +210,7 @@ def extract_users(users: pd.Series):
 
     store_extracted(df, Path("data/extracted/users.jsonl"))
 
+
 def process_project_chunk(chunk):
     extract_users(chunk['user'])
     chunk = chunk.drop(columns=['user'])
@@ -332,6 +223,7 @@ def process_project_chunk(chunk):
     chunk = chunk.rename(columns={'status_name': 'status'})
 
     return chunk
+
 
 def process_boolean_columns(chunk, bool_cols):
     bool_cols = [col for col in bool_cols if col in chunk.columns]
