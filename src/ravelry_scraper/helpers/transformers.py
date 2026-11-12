@@ -8,7 +8,7 @@ from .parquet import de_dup_parquet
 from .strings import fraction_to_float
 
 def extract_nested_data(series: pd.Series, category: str):
-    if isinstance(series.iloc[0], list): series = series.explode()
+    if isinstance(series.iloc[0], (list, np.ndarray)): series = series.explode()
     series = series.dropna()
     df = series.apply(pd.Series)
     if category in ['pattern_needle_sizes', 'min_needle_sizes', 'max_needle_sizes']:
@@ -28,15 +28,16 @@ def extract_recursively(row: pd.Series, col: str, category: str):
         sub_record = next_sub_record
 
 def extract_users(users: pd.Series):
+    if isinstance(users.iloc[0], (list, np.ndarray)): users = users.explode()
     df = users.dropna().apply(pd.Series)
     df = df[['id', 'username', 'profile_country_code']]
     df = df.drop_duplicates()
 
-    store_extracted(df, Path("data/extracted/users.jsonl"))
+    store_extracted(df, Path("data/extracted/users"), filetype="parquet")
 
 def get_ids(row, column, id='id'):
     value = row[column]
-    if isinstance(value, list):
+    if isinstance(value, (list, np.ndarray)):
         return list(filter(None, map(lambda x: x[id] if id in x else np.nan, value)))
     else:
         return value[id] if isinstance(value, dict) and id in value else np.nan
