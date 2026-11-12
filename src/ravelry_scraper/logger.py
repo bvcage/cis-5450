@@ -1,9 +1,15 @@
 import logging
+from contextlib import contextmanager
 from datetime import datetime, UTC
 from pathlib import Path
 
 class RavelryLogger(logging.LoggerAdapter):
-    def log_duration(self, start_time: datetime, end_time: datetime, time_format = '%Y-%m-%d @ %I:%M:%S %p'):
+    @contextmanager
+    def log_duration(self, time_format = '%Y-%m-%d @ %I:%M:%S %p'):
+        start_time = datetime.now(UTC)
+        yield
+        end_time = datetime.now(UTC)
+
         self.info(f"Began at: {start_time.astimezone().strftime(time_format)}")
         self.info(f"Ended at: {end_time.astimezone().strftime(time_format)}")
         self.info(f"Elapsed time: {str(end_time - start_time)}")

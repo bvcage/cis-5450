@@ -1,6 +1,5 @@
 from datetime import datetime, UTC
 from pathlib import Path
-import json
 
 from .client import RavelryClient
 from .exceptions import RavelryScraperError, RequestError
@@ -21,11 +20,9 @@ def initialize_pipeline():
         state,
     )
 
-
 def run_projects_pipeline(max_pages = None):
     run_search_pipeline("projects")
     process_projects()
-
 
 def run_pipeline(
     category="patterns",
@@ -33,11 +30,23 @@ def run_pipeline(
     batch_size=1_000,
     from_last_success=True,
 ):
-    start_time = datetime.now(UTC)
-
     if not category in ["patterns", "designers", "yarns"]: return # todo
 
     client, state = initialize_pipeline()
+    with logger.log_duration():
+        _run_pipeline(
+            category,
+            max_count,
+            batch_size,
+            from_last_success,
+        )
+
+def _run_pipeline(
+    category,
+    max_count,
+    batch_size,
+    from_last_success,
+):
 
     batch_size = min(max_count, batch_size)
 
@@ -91,12 +100,7 @@ def run_pipeline(
                 "max_id": last_id,
             })
 
-
-    end_time = datetime.now(UTC)
-
     logger.info(f"Scrape complete for {total_count} {category}.")
-    logger.log_duration(start_time, end_time)
-
 
 def run_search_pipeline(
     category="projects",
@@ -104,7 +108,16 @@ def run_search_pipeline(
 ):
     if category not in ["projects"]: return # todo
 
-    start_time = datetime.now(UTC)
+    with logger.log_duration():
+        _run_search_pipeline(
+            category=category,
+            max_pages=max_pages,
+        )
+
+def _run_search_pipeline(
+    category,
+    max_pages,
+):
     client = initialize_pipeline()
 
     endpoint = f"/{category}/search.json"
@@ -137,9 +150,7 @@ def run_search_pipeline(
             page_num += 1
             if records: append_to_jsonl(records, Path(f"data/raw/{category}.jsonl"))
 
-    end_time = datetime.now(UTC)
-
     logger.info(f"Scrape complete for {category}.")
-    logger.log_duration(start_time, end_time)
 
     logger.info(f"Deduping results for {category}...")
+    # todo

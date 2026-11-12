@@ -15,7 +15,10 @@ logger = get_logger(MODULE)
 
 # Docs: https://www.ravelry.com/api#Pattern_full_result
 def process_patterns():
-    start_time = datetime.now(UTC)
+    with logger.log_duration():
+        _process_patterns()
+
+def _process_patterns():
     logger.info("Processing patterns ...")
 
     raw_path = Path("data/raw/patterns.jsonl")
@@ -41,8 +44,7 @@ def process_patterns():
     total_chunks = 0
     total_records = 0
     for idx, chunk in enumerate(pd.read_json(raw_path, lines=True, chunksize=10_000)):
-        total_chunks += 1
-        logger.info(f"Processing chunk {idx} with {len(chunk)} rows")
+        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
 
@@ -50,7 +52,7 @@ def process_patterns():
 
         processed_chunk = process_pattern_chunk(chunk, c)
 
-        logger.info(f"Processed chunk {idx} has {len(processed_chunk)} rows")
+        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
         total_records += len(processed_chunk)
 
         processed_chunk.to_parquet(
@@ -59,15 +61,11 @@ def process_patterns():
             index=False,
         )
 
-    logger.info(f"Total chunks processed: {total_chunks}")
+    logger.info(f"Total chunks processed: {idx+1}")
     logger.info(f"Total records processed: {total_records}")
 
-    combined_file = combine_parquet(processed_dir)
-    if combined_file: de_dup_parquet(combined_file)
-    end_time = datetime.now(UTC)
-
-    logger.info("Completed processing patterns.")
-    logger.log_duration(start_time, end_time)
+    combined_file_path = combine_parquet(processed_dir)
+    if combined_file_path: de_dup_parquet(combined_file_path)
 
 def process_pattern_chunk(chunk, c):
     # drop gauge columns
