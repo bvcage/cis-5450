@@ -9,9 +9,9 @@ from currency_converter import CurrencyConverter
 from datetime import datetime, UTC
 from pathlib import Path
 
-from .helpers.jsonl import append_to_jsonl, de_dup_jsonl
+from .helpers.jsonl import de_dup_jsonl
 from .helpers.parquet import combine_parquet, de_dup_parquet
-from .helpers.strings import to_plural, to_singular, fraction_to_float
+from .helpers.transformers import extract_nested_data, extract_users, get_count, get_ids, process_boolean_columns, process_datetime_columns, process_int_columns
 from .logger import get_logger
 
 MODULE = Path(__file__).stem
@@ -58,61 +58,6 @@ def process_patterns():
 
     logger.info("Completed processing patterns.")
     logger.log_duration(start_time, end_time)
-
-
-def store_extracted(df, path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    df = df.drop_duplicates(subset=['id'])
-    df['extracted_at'] = datetime.now(UTC)
-
-    df.to_json(
-        path,
-        orient='records',
-        lines=True,
-        mode='a',
-        date_format='iso',
-    )
-
-    de_dup_jsonl(path)
-
-def extract_recursively(row: pd.Series, col: str, category: str):
-    if row is None or pd.isnull(row[col]): return # skip invalid rows
-
-    sub_record = row.get(col, None)
-    while not pd.isnull(sub_record):
-        sub_record[f'{col}_id'] = get_ids(row, col)
-        next_sub_record = sub_record.pop(col, None)
-        store_extracted(pd.DataFrame([sub_record]), Path(f"data/extracted/{category}.jsonl"))
-        sub_record = next_sub_record
-
-def extract_nested_data(series: pd.Series, category: str):
-    if isinstance(series.iloc[0], list): series = series.explode()
-    series = series.dropna()
-    df = series.apply(pd.Series)
-    if category in ['pattern_needle_sizes', 'min_needle_sizes', 'max_needle_sizes']:
-        for col in ['us','metric']:
-            df[col] = df[col].apply(fraction_to_float)
-        category = 'needle_sizes'
-    # if category == 'pattern_categories':
-        # try:
-            # df['parent_id'] = df.apply(get_ids, axis=1, column='parent', id='id')
-            # df.apply(extract_recursively, axis=1, col='parent', category=category)
-            # df = df.drop(columns=['parent'])
-        # except Exception as e:
-        #     breakpoint()
-    store_extracted(df, Path(f"data/extracted/{category}.jsonl"))
-
-def get_ids(row, column, id='id'):
-    value = row[column]
-    if isinstance(value, list):
-        return list(filter(None, map(lambda x: x[id] if id in x else np.nan, value)))
-    else:
-        return value[id] if isinstance(value, dict) and id in value else np.nan
-
-def get_count(row, column):
-    items = row[column]
-    return len(items) if isinstance(items, list) else 0
 
 def process_pattern_chunk(chunk, c):
     logger = get_logger(MODULE)
@@ -169,7 +114,6 @@ def process_pattern_chunk(chunk, c):
 
     return chunk
 
-
 def process_projects():
     start_time = datetime.now(UTC)
     logger = get_logger(MODULE)
@@ -208,15 +152,6 @@ def process_projects():
     logger.info("Completed processing projects.")
     logger.log_duration(start_time, end_time)
 
-
-def extract_users(users: pd.Series):
-    df = users.dropna().apply(pd.Series)
-    df = df[['id', 'username', 'profile_country_code']]
-    df = df.drop_duplicates()
-
-    store_extracted(df, Path("data/extracted/users.jsonl"))
-
-
 def process_project_chunk(chunk):
     extract_users(chunk['user'])
     chunk = chunk.drop(columns=['user'])
@@ -231,24 +166,5 @@ def process_project_chunk(chunk):
     return chunk
 
 
-def process_boolean_columns(chunk, bool_cols):
-    bool_cols = [col for col in bool_cols if col in chunk.columns]
-    chunk = chunk.dropna(subset=bool_cols)
-    for col in bool_cols:
-        chunk[col] = chunk[col].astype(int)
-    return chunk
 
-    
-def process_int_columns(chunk, int_cols):
-    int_cols = [col for col in int_cols if col in chunk.columns]
-    chunk = chunk.dropna(subset=int_cols)
-    for col in int_cols:
-        chunk[col] = chunk[col].astype(int)
-    return chunk
 
-# TODO: fix overflow error - need to ensure dates are valid
-def process_datetime_columns(chunk, datetime_cols):
-    datetime_cols = [col for col in datetime_cols if col in chunk.columns]
-    for col in datetime_cols:
-        chunk[col] = pd.to_datetime(chunk[col], utc=True)
-    return chunk
