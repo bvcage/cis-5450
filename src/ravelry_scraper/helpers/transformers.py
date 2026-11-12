@@ -4,14 +4,14 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 from .jsonl import de_dup_jsonl
-from .parquet import de_dup_parquet
+from .parquet import combine_parquet_dir, de_dup_parquet
 from .strings import fraction_to_float
 
 def extract_nested_data(series: pd.Series, category: str):
     if isinstance(series.iloc[0], (list, np.ndarray)): series = series.explode()
     series = series.dropna()
     df = series.apply(pd.Series)
-    if category in ['pattern_needle_sizes', 'min_needle_sizes', 'max_needle_sizes']:
+    if category in ['pattern_needle_sizes', 'min_needle_size', 'max_needle_size']:
         for col in ['us','metric']:
             df[col] = df[col].apply(fraction_to_float)
         category = 'needle_sizes'

@@ -6,7 +6,7 @@ import uuid
 from currency_converter import CurrencyConverter
 from pathlib import Path
 
-from ..helpers.parquet import combine_parquet, de_dup_parquet
+from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
 from ..helpers.transformers import extract_nested_data, get_count, get_ids, process_int_columns, process_datetime_columns, process_boolean_columns
 from ..logger import get_logger
 
@@ -64,7 +64,7 @@ def _process_patterns():
     logger.info(f"Total chunks processed: {idx+1}")
     logger.info(f"Total records processed: {total_records}")
 
-    combined_file_path = combine_parquet(processed_dir)
+    combined_file_path = combine_parquet_dir(processed_dir)
     if combined_file_path: de_dup_parquet(combined_file_path)
 
 def process_pattern_chunk(chunk, c):

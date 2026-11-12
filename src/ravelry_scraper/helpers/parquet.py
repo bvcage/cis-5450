@@ -2,7 +2,7 @@ import polars as pl
 
 from pathlib import Path
 
-def combine_parquet(
+def combine_parquet_dir(
     source_dir: Path,
     destination_path: Path = None,
     delete_source: bool = True,

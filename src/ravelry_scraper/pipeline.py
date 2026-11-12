@@ -7,7 +7,7 @@ from pathlib import Path
 from .client import RavelryClient
 from .exceptions import RavelryScraperError, RequestError
 from .helpers.jsonl import append_to_jsonl
-from .helpers.parquet import combine_parquet, de_dup_parquet
+from .helpers.parquet import combine_parquet_dir, de_dup_parquet
 from .logger import get_logger
 from .state import StateManager
 from .stats import StatsManager
@@ -119,7 +119,7 @@ def _run_pipeline(
             })
 
     logger.info("Combining parquet files...")
-    combine_parquet(cat_dir, cat_dir / f"{category}.parquet")
+    combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
 
     logger.info(f"Scrape complete for {total_count} {category}.")
 
@@ -183,7 +183,7 @@ def _run_search_pipeline(
                 records = []
 
     logger.info("Combining parquet files...")
-    combined_file_path = combine_parquet(cat_dir, cat_dir / f"{category}.parquet")
+    combined_file_path = combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
     logger.info(f"Deduping {category}...")
     de_dup_parquet(combined_file_path)
 
