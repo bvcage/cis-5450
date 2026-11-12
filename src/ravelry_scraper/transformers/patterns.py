@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import uuid
+
 from currency_converter import CurrencyConverter
-from datetime import datetime, UTC
 from pathlib import Path
 
 from ..helpers.parquet import combine_parquet, de_dup_parquet

@@ -3,18 +3,9 @@ import pandas as pd
 from datetime import datetime, UTC
 from pathlib import Path
 
-from .strings import fraction_to_float
 from .jsonl import de_dup_jsonl
-
-def extract_recursively(row: pd.Series, col: str, category: str):
-    if row is None or pd.isnull(row[col]): return # skip invalid rows
-
-    sub_record = row.get(col, None)
-    while not pd.isnull(sub_record):
-        sub_record[f'{col}_id'] = get_ids(row, col)
-        next_sub_record = sub_record.pop(col, None)
-        store_extracted(pd.DataFrame([sub_record]), Path(f"data/extracted/{category}.jsonl"))
-        sub_record = next_sub_record
+from .parquet import de_dup_parquet
+from .strings import fraction_to_float
 
 def extract_nested_data(series: pd.Series, category: str):
     if isinstance(series.iloc[0], list): series = series.explode()
@@ -25,6 +16,16 @@ def extract_nested_data(series: pd.Series, category: str):
             df[col] = df[col].apply(fraction_to_float)
         category = 'needle_sizes'
     store_extracted(df, Path(f"data/extracted/{category}.jsonl"))
+
+def extract_recursively(row: pd.Series, col: str, category: str):
+    if row is None or pd.isnull(row[col]): return # skip invalid rows
+
+    sub_record = row.get(col, None)
+    while not pd.isnull(sub_record):
+        sub_record[f'{col}_id'] = get_ids(row, col)
+        next_sub_record = sub_record.pop(col, None)
+        store_extracted(pd.DataFrame([sub_record]), Path(f"data/extracted/{category}.jsonl"))
+        sub_record = next_sub_record
 
 def extract_users(users: pd.Series):
     df = users.dropna().apply(pd.Series)
@@ -68,6 +69,8 @@ def process_datetime_columns(chunk, datetime_cols):
 def store_extracted(df, path, filetype="jsonl"):
     if filetype == "jsonl":
         store_extracted_as_jsonl(df, path)
+    elif filetype == "parquet":
+        store_extracted_as_parquet(df, path)
 
 def store_extracted_as_jsonl(df, path):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -84,3 +87,18 @@ def store_extracted_as_jsonl(df, path):
     )
 
     de_dup_jsonl(path)
+
+def store_extracted_as_parquet(df, path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    df = df.drop_duplicates(subset=['id'])
+    df['extracted_at'] = datetime.now(UTC)
+
+    df.to_parquet(
+        path,
+        engine='pyarrow',
+        index=False,
+        compression='snappy',
+    )
+
+    de_dup_parquet(path)

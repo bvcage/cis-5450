@@ -59,7 +59,6 @@ def _process_projects():
         )
 
     de_dup_jsonl(processed_path)
-    end_time = datetime.now(UTC)
 
     logger.info("Completed processing projects.")
 
