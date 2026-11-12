@@ -44,7 +44,7 @@ def get_ids(row, column, id='id'):
 
 def get_count(row, column):
     items = row[column]
-    return len(items) if isinstance(items, list) else 0
+    return len(items) if isinstance(items, (list, np.ndarray)) else 0
 
 def process_boolean_columns(chunk, bool_cols):
     bool_cols = [col for col in bool_cols if col in chunk.columns]

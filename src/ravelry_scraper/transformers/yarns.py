@@ -9,23 +9,30 @@ from currency_converter import CurrencyConverter
 from datetime import datetime, UTC
 from pathlib import Path
 
-from .helpers.jsonl import de_dup_jsonl
-from .helpers.parquet import combine_parquet, de_dup_parquet
-from .helpers.transformers import extract_nested_data, extract_users, get_count, get_ids, process_boolean_columns, process_datetime_columns, process_int_columns
-from .logger import get_logger
+from ..helpers.jsonl import de_dup_jsonl
+from ..helpers.parquet import combine_parquet, de_dup_parquet
+from ..helpers.transformers import extract_nested_data, extract_users, get_count, get_ids, process_boolean_columns, process_datetime_columns, process_int_columns
+from ..logger import get_logger
 
-MODULE = Path(__file__).stem
+curr_file = Path(__file__).resolve()
+MODULE = f"{curr_file.parent.name}/{curr_file.stem}"
 logger = get_logger(MODULE)
 
 def process_yarns():
-    start_time = datetime.now(UTC)
+    with logger.log_duration():
+        _process_yarns()
+
+def _process_yarns():
     logger.info("Processing yarns ...")
 
-    raw_path = Path("data/raw/yarns.jsonl")
-    processed_path = Path("data/processed/yarns.jsonl")
+    raw_path = Path("data/raw/yarns.parquet")
+    raw_file = pq.ParquetFile(raw_path)
+    processed_dir = Path("data/processed/yarns")
+    processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []
-    for chunk in pd.read_json(raw_path, lines=True, chunksize=100):
+    for batch in raw_file.iter_batches(batch_size=100):
+        chunk = batch.to_pandas()
         cols = chunk.columns.to_list()
         max_num_na = len(chunk.index) * 0.4
         na_cols = [col for col in cols if chunk[col].isna().sum() > max_num_na]
@@ -36,38 +43,41 @@ def process_yarns():
 
     drop_cols = set(na_cols + unused_cols)
     drop_cols = [col for col in drop_cols if col not in must_keep_cols]
+
     logger.info(f"Dropping columns from dataset: {drop_cols}")
 
-    # c = CurrencyConverter()
+    total_records = 0
+    for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
+        chunk = batch.to_pandas()
+        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
-    for chunk in pd.read_json(raw_path, lines=True, chunksize=10_000):
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
+        processed_chunk = process_yarn_chunk(chunk)
 
-        process_yarn_chunk(chunk).to_json(
-            processed_path,
-            orient='records',
-            lines=True,
-            mode='a',
-            date_format='iso',
+        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
+        total_records += len(processed_chunk)
+
+        processed_chunk.to_parquet(
+            processed_dir / f"{uuid.uuid4().hex}.parquet",
+            engine='pyarrow',
+            index=False,
+            compression='snappy'
         )
 
-    de_dup_jsonl(processed_path)
-    end_time = datetime.now(UTC)
+    logger.info(f"Total chunks processed: {idx+1}")
+    logger.info(f"Total records processed: {total_records}")
+
+    combined_file_path = combine_parquet(processed_dir)
+    if combined_file_path: de_dup_parquet(combined_file_path)
 
     logger.info("Completed processing yarns.")
-    logger.log_duration(start_time, end_time)
 
 def process_yarn_chunk(chunk):
-    [ 'gauge_divisor', '',  
-         'name',
-       '', 'yarn_fibers', '', '',
-        '']
-
     chunk = process_boolean_columns(chunk, ['discontinued', 'machine_washable'])
 
     chunk = process_int_columns(chunk, ['id'])
     chunk = process_int_columns(chunk, [col for col in chunk.columns if col.endswith('count')])
-    chunk = process_int_columns(chunk, [''])
+    chunk = process_int_columns(chunk, ['rating_total', 'yardage'])
 
     chunk = process_datetime_columns(chunk, ['scraped_at'])
 
@@ -77,10 +87,8 @@ def process_yarn_chunk(chunk):
 
     # if no range, set max to min
     chunk['max_gauge'] = chunk['max_gauge'].fillna(chunk['min_gauge'])
-    chunk['min_gauge'] = chunk['min_gauge'].astype('Int64')
-    chunk['max_gauge'] = chunk['max_gauge'].astype('Int64')
 
-    extract_cols = ['min_needle_size', 'max_needle_size', 'yarn_company', 'yarn_weight']
+    extract_cols = ['min_needle_size', 'max_needle_size', 'yarn_company', 'yarn_fibers', 'yarn_weight']
     extract_cols = [col for col in extract_cols if col in chunk.columns]
     for col in extract_cols:
         extract_nested_data(chunk[col], col)
