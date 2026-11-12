@@ -32,7 +32,6 @@ def run_pipeline(
 ):
     if not category in ["patterns", "designers", "yarns"]: return # todo
 
-    client, state = initialize_pipeline()
     with logger.log_duration():
         _run_pipeline(
             category,
@@ -47,6 +46,7 @@ def _run_pipeline(
     batch_size,
     from_last_success,
 ):
+    client, state, stats = initialize_pipeline()
 
     batch_size = min(max_count, batch_size)
 
