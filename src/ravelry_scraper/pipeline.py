@@ -120,7 +120,7 @@ def _run_pipeline(
 
     logger.info("Combining parquet files...")
     combine_parquet(cat_dir, cat_dir / f"{category}.parquet")
-    
+
     logger.info(f"Scrape complete for {total_count} {category}.")
 
 def run_search_pipeline(
@@ -131,15 +131,18 @@ def run_search_pipeline(
 
     with logger.log_duration():
         _run_search_pipeline(
-            category=category,
-            max_pages=max_pages,
+            category,
+            max_pages,
         )
 
 def _run_search_pipeline(
     category,
     max_pages,
 ):
-    client = initialize_pipeline()
+    client, _, _ = initialize_pipeline()
+
+    cat_dir = Path(f"data/raw/{category}")
+    cat_dir.mkdir(parents=True, exist_ok=True)
 
     endpoint = f"/{category}/search.json"
     records = []
@@ -169,9 +172,19 @@ def _run_search_pipeline(
                 return
         finally:
             page_num += 1
-            if records: append_to_jsonl(records, Path(f"data/raw/{category}.jsonl"))
+            if records:
+                df = pd.DataFrame(records)
+                df.to_parquet(
+                    cat_dir / f"{uuid.uuid4().hex}.parquet",
+                    engine='pyarrow',
+                    index=False,
+                    compression='snappy'
+                )
+                records = []
+
+    logger.info("Combining parquet files...")
+    combined_file_path = combine_parquet(cat_dir, cat_dir / f"{category}.parquet")
+    logger.info(f"Deduping {category}...")
+    de_dup_parquet(combined_file_path)
 
     logger.info(f"Scrape complete for {category}.")
-
-    logger.info(f"Deduping results for {category}...")
-    # todo
