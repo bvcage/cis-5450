@@ -15,7 +15,7 @@ def extract_nested_data(series: pd.Series, category: str):
         for col in ['us','metric']:
             df[col] = df[col].apply(fraction_to_float)
         category = 'needle_sizes'
-    store_extracted(df, Path(f"data/extracted/{category}.jsonl"))
+    store_extracted(df, Path(f"data/extracted/{category}"), filetype="parquet")
 
 def extract_recursively(row: pd.Series, col: str, category: str):
     if row is None or pd.isnull(row[col]): return # skip invalid rows
@@ -24,7 +24,7 @@ def extract_recursively(row: pd.Series, col: str, category: str):
     while not pd.isnull(sub_record):
         sub_record[f'{col}_id'] = get_ids(row, col)
         next_sub_record = sub_record.pop(col, None)
-        store_extracted(pd.DataFrame([sub_record]), Path(f"data/extracted/{category}.jsonl"))
+        store_extracted(pd.DataFrame([sub_record]), Path(f"data/extracted/{category}"), filetype="parquet")
         sub_record = next_sub_record
 
 def extract_users(users: pd.Series):
@@ -68,11 +68,11 @@ def process_datetime_columns(chunk, datetime_cols):
 
 def store_extracted(df, path, filetype="jsonl"):
     if filetype == "jsonl":
-        store_extracted_as_jsonl(df, path)
+        _store_extracted_as_jsonl(df, path.with_suffix('.jsonl'))
     elif filetype == "parquet":
-        store_extracted_as_parquet(df, path)
+        _store_extracted_as_parquet(df, path.with_suffix('.parquet'))
 
-def store_extracted_as_jsonl(df, path):
+def _store_extracted_as_jsonl(df, path):
     path.parent.mkdir(parents=True, exist_ok=True)
 
     df = df.drop_duplicates(subset=['id'])
@@ -88,7 +88,7 @@ def store_extracted_as_jsonl(df, path):
 
     de_dup_jsonl(path)
 
-def store_extracted_as_parquet(df, path):
+def _store_extracted_as_parquet(df, path):
     path.parent.mkdir(parents=True, exist_ok=True)
 
     df = df.drop_duplicates(subset=['id'])
