@@ -18,16 +18,19 @@ def combine_parquet(
     if destination_path is None:
         destination_path = source_dir.parent / f"{source_dir.name}.parquet"
 
+    tmp_dest_path = destination_path.with_suffix('.tmp')
+
     lazy_frames = [
         pl.scan_parquet(f) for f in sorted(source_dir.glob("*.parquet"))
     ]
 
-    pl.concat(lazy_frames, how="diagonal_relaxed").sink_parquet(destination_path, compression='snappy')
+    pl.concat(lazy_frames, how="diagonal_relaxed").sink_parquet(tmp_dest_path, compression='snappy')
 
     if delete_source:
         for f in source_dir.glob("*.parquet"):
             f.unlink()
-            
+
+    tmp_dest_path.replace(destination_path)
     return destination_path
 
 def de_dup_parquet(

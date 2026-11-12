@@ -47,18 +47,16 @@ def _process_patterns():
         logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
-
-        processed_path = processed_dir / f"{uuid.uuid4().hex}.parquet"
-
         processed_chunk = process_pattern_chunk(chunk, c)
 
         logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
         total_records += len(processed_chunk)
 
         processed_chunk.to_parquet(
-            processed_path,
+            processed_dir / f"{uuid.uuid4().hex}.parquet",
             engine='pyarrow',
             index=False,
+            compression='snappy'
         )
 
     logger.info(f"Total chunks processed: {idx+1}")

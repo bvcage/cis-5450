@@ -1,12 +1,17 @@
+import pandas as pd
+import uuid
+
 from datetime import datetime, UTC
 from pathlib import Path
 
 from .client import RavelryClient
 from .exceptions import RavelryScraperError, RequestError
 from .helpers.jsonl import append_to_jsonl
+from .helpers.parquet import combine_parquet, de_dup_parquet
 from .logger import get_logger
 from .state import StateManager
-from .transform import process_projects
+from .stats import StatsManager
+from .transformers.projects import process_projects
 
 MODULE = Path(__file__).stem
 logger = get_logger(MODULE)
@@ -14,10 +19,12 @@ logger = get_logger(MODULE)
 def initialize_pipeline():
     client = RavelryClient()
     state = StateManager()
+    stats = StatsManager()
 
     return (
         client,
         state,
+        stats,
     )
 
 def run_projects_pipeline(max_pages = None):
@@ -47,6 +54,9 @@ def _run_pipeline(
     from_last_success,
 ):
     client, state, stats = initialize_pipeline()
+
+    cat_dir = Path(f"data/raw/{category}")
+    cat_dir.mkdir(parents=True, exist_ok=True)
 
     batch_size = min(max_count, batch_size)
 
@@ -92,7 +102,15 @@ def _run_pipeline(
         finally:
             logger.info("Saving batch results & updating checkpoint...")
 
-            if records: append_to_jsonl(records, Path(f"data/raw/{category}.jsonl"))
+            if records:
+                df = pd.DataFrame(records)
+                df.to_parquet(
+                    cat_dir / f"{uuid.uuid4().hex}.parquet",
+                    engine='pyarrow',
+                    index=False,
+                    compression='snappy'
+                )
+
             if errors: append_to_jsonl(errors, Path(f"data/failed/{category}.jsonl"))
 
             state.update_checkpoint(category, {
@@ -100,6 +118,9 @@ def _run_pipeline(
                 "max_id": last_id,
             })
 
+    logger.info("Combining parquet files...")
+    combine_parquet(cat_dir, cat_dir / f"{category}.parquet")
+    
     logger.info(f"Scrape complete for {total_count} {category}.")
 
 def run_search_pipeline(
