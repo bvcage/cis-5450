@@ -4,12 +4,13 @@ import pandas as pd
 import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
+import uuid
 from currency_converter import CurrencyConverter
 from datetime import datetime, UTC
 from pathlib import Path
 
 from .helpers.jsonl import append_to_jsonl, de_dup_jsonl
-from .helpers.parquet import de_dup_parquet
+from .helpers.parquet import combine_parquet, de_dup_parquet
 from .helpers.strings import to_plural, to_singular, fraction_to_float
 from .logger import get_logger
 
@@ -22,7 +23,8 @@ def process_patterns():
     logger.info("Processing projects ...")
 
     raw_path = Path("data/raw/patterns.jsonl")
-    processed_path = Path("data/processed/patterns.parquet")
+    processed_dir = Path("data/processed/patterns")
+    processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []
     for chunk in pd.read_json(raw_path, lines=True, chunksize=100):
@@ -43,14 +45,15 @@ def process_patterns():
     for chunk in pd.read_json(raw_path, lines=True, chunksize=10_000):
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
 
+        processed_path = processed_dir / f"{uuid.uuid4().hex}.parquet"
         process_pattern_chunk(chunk, c).to_parquet(
             processed_path,
-            engine='fastparquet',
-            append=processed_path.exists(),
+            engine='pyarrow',
             index=False,
         )
 
-    de_dup_parquet(processed_path)
+    combined_file = combine_parquet(processed_dir)
+    if combined_file: de_dup_parquet(combined_file)
     end_time = datetime.now(UTC)
 
     logger.info("Completed processing patterns.")
