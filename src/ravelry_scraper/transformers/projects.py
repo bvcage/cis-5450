@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 import uuid
 
 from pathlib import Path
@@ -19,12 +20,14 @@ def process_projects():
 def _process_projects():
     logger.info("Processing projects ...")
 
-    raw_path = Path("data/raw/projects.parquet")
+    raw_path = Path("data/raw/projects/projects.parquet")
+    raw_file = pq.ParquetFile(raw_path)
     processed_dir = Path("data/processed/projects")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []
-    for chunk in pd.read_parquet(raw_path, chunksize=100):
+    for batch in raw_file.iter_batches(batch_size=100):
+        chunk = batch.to_pandas()
         cols = chunk.columns.to_list()
         max_num_na = len(chunk.index) * 0.2
         na_cols = [col for col in cols if chunk[col].isna().sum() > max_num_na]
@@ -36,7 +39,7 @@ def _process_projects():
     logger.info(f"Dropping columns from dataset: {drop_cols.tolist()}")
 
     total_records = 0
-    for idx, batch in enumerate(raw_path.iter_batches(batch_size=10_000)):
+    for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
         chunk = batch.to_pandas()
         logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
