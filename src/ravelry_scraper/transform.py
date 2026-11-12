@@ -2,11 +2,14 @@ import json
 import numpy as np
 import pandas as pd
 import polars as pl
+import pyarrow as pa
+import pyarrow.parquet as pq
 from currency_converter import CurrencyConverter
 from datetime import datetime, UTC
 from pathlib import Path
 
 from .helpers.jsonl import append_to_jsonl, de_dup_jsonl
+from .helpers.parquet import de_dup_parquet
 from .helpers.strings import to_plural, to_singular, fraction_to_float
 from .logger import get_logger
 
@@ -19,7 +22,7 @@ def process_patterns():
     logger.info("Processing projects ...")
 
     raw_path = Path("data/raw/patterns.jsonl")
-    processed_path = Path("data/processed/patterns.jsonl")
+    processed_path = Path("data/processed/patterns.parquet")
 
     na_cols = []
     for chunk in pd.read_json(raw_path, lines=True, chunksize=100):
@@ -40,15 +43,14 @@ def process_patterns():
     for chunk in pd.read_json(raw_path, lines=True, chunksize=10_000):
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
 
-        process_pattern_chunk(chunk, c).to_json(
+        process_pattern_chunk(chunk, c).to_parquet(
             processed_path,
-            orient='records',
-            lines=True,
-            mode='a',
-            date_format='iso',
+            engine='fastparquet',
+            append=processed_path.exists(),
+            index=False,
         )
 
-    de_dup_jsonl(processed_path)
+    de_dup_parquet(processed_path)
     end_time = datetime.now(UTC)
 
     logger.info("Completed processing patterns.")
@@ -58,7 +60,7 @@ def process_patterns():
 def store_extracted(df, path):
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    df = df.drop_duplicates()
+    df = df.drop_duplicates(subset=['id'])
     df['extracted_at'] = datetime.now(UTC)
 
     df.to_json(
@@ -89,13 +91,13 @@ def extract_nested_data(series: pd.Series, category: str):
         for col in ['us','metric']:
             df[col] = df[col].apply(fraction_to_float)
         category = 'needle_sizes'
-    if category == 'pattern_categories':
-        try:
-            df['parent_id'] = df.apply(get_ids, axis=1, column='parent', id='id')
-            df.apply(extract_recursively, axis=1, col='parent', category=category)
-            df = df.drop(columns=['parent'])
-        except Exception as e:
-            breakpoint()
+    # if category == 'pattern_categories':
+        # try:
+            # df['parent_id'] = df.apply(get_ids, axis=1, column='parent', id='id')
+            # df.apply(extract_recursively, axis=1, col='parent', category=category)
+            # df = df.drop(columns=['parent'])
+        # except Exception as e:
+        #     breakpoint()
     store_extracted(df, Path(f"data/extracted/{category}.jsonl"))
 
 def get_ids(row, column, id='id'):

@@ -6,7 +6,7 @@ import pyarrow.parquet as pq
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-DATETIME_COLS = ["created_at", "extracted_at", "published", "scraped_at", "timestamp", "updated_at"]
+from ..constants import DATETIME_COLS
 
 def append_to_jsonl(records: list, target: Path):
     if not records: return
