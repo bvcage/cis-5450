@@ -1,12 +1,6 @@
-import pandas as pd
 import polars as pl
-import pyarrow as pa
-import pyarrow.dataset as ds
-import pyarrow.parquet as pq
 
 from pathlib import Path
-
-from ..constants import DATETIME_COLS
 
 def combine_parquet(
     source_dir: Path,

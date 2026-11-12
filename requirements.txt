@@ -4,7 +4,6 @@ charset-normalizer==3.5.2
 cramjam==2.14.0
 CurrencyConverter==0.18.23
 dotenv==0.9.9
-fastparquet==2026.9.0
 fsspec==2026.9.0
 h11==0.16.0
 httpcore==1.0.9

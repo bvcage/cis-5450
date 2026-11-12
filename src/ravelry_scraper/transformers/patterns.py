@@ -40,8 +40,6 @@ def _process_patterns():
     logger.info(f"Dropping columns from dataset: {drop_cols}")
 
     c = CurrencyConverter()
-
-    total_chunks = 0
     total_records = 0
     for idx, chunk in enumerate(pd.read_json(raw_path, lines=True, chunksize=10_000)):
         logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")

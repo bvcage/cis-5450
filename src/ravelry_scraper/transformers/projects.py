@@ -1,28 +1,16 @@
-import json
 import numpy as np
 import pandas as pd
-import polars as pl
-import pyarrow as pa
-import pyarrow.parquet as pq
 import uuid
-from currency_converter import CurrencyConverter
-from datetime import datetime, UTC
+
 from pathlib import Path
 
-from ..helpers.jsonl import de_dup_jsonl
 from ..helpers.parquet import combine_parquet, de_dup_parquet
-from ..helpers.transformers import extract_nested_data, extract_users, get_count, get_ids, process_boolean_columns, process_datetime_columns, process_int_columns
+from ..helpers.transformers import extract_users, process_datetime_columns, process_int_columns
 from ..logger import get_logger
-
-from ..helpers.parquet import combine_parquet, de_dup_parquet
-from ..helpers.transformers import extract_nested_data, get_count, get_ids, process_int_columns, process_datetime_columns, process_boolean_columns
-from ..logger import get_logger
-from ..stats import StatsManager
 
 curr_file = Path(__file__).resolve()
 MODULE = f"{curr_file.parent.name}/{curr_file.stem}"
 logger = get_logger(MODULE)
-stats = StatsManager()
 
 def process_projects():
     with logger.log_duration():
@@ -31,12 +19,12 @@ def process_projects():
 def _process_projects():
     logger.info("Processing projects ...")
 
-    raw_path = Path("data/raw/projects.jsonl")
-    processed_path = Path("data/processed/projects.jsonl")
-    processed_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_path = Path("data/raw/projects.parquet")
+    processed_dir = Path("data/processed/projects")
+    processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []
-    for chunk in pd.read_json(raw_path, lines=True, chunksize=100):
+    for chunk in pd.read_parquet(raw_path, chunksize=100):
         cols = chunk.columns.to_list()
         max_num_na = len(chunk.index) * 0.2
         na_cols = [col for col in cols if chunk[col].isna().sum() > max_num_na]
@@ -45,20 +33,31 @@ def _process_projects():
     unused_cols = ['made_for', 'first_photo', 'name', 'permalink', 'links', 'pattern_name', 'project_status_id', 'gauge_pattern', 'completed_day_set', 'started_day_set']
     drop_cols = np.union1d(na_cols, unused_cols)
 
-    logger.info(f"Columns to drop: {drop_cols.tolist()}")
+    logger.info(f"Dropping columns from dataset: {drop_cols.tolist()}")
 
-    for chunk in pd.read_json(raw_path, lines=True, chunksize=10_000):
-        chunk = chunk.drop(columns=drop_cols)
+    total_records = 0
+    for idx, batch in enumerate(raw_path.iter_batches(batch_size=10_000)):
+        chunk = batch.to_pandas()
+        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
-        process_project_chunk(chunk).to_json(
-            processed_path,
-            orient='records',
-            lines=True,
-            mode='a',
-            date_format='iso',
+        chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
+        processed_chunk = process_project_chunk(chunk)
+
+        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
+        total_records += len(processed_chunk)
+
+        processed_chunk.to_parquet(
+            processed_dir / f"{uuid.uuid4().hex}.parquet",
+            engine='pyarrow',
+            index=False,
+            compression='snappy'
         )
 
-    de_dup_jsonl(processed_path)
+    logger.info(f"Total chunks processed: {idx+1}")
+    logger.info(f"Total records processed: {total_records}")
+
+    combined_file_path = combine_parquet(processed_dir)
+    if combined_file_path: de_dup_parquet(combined_file_path)
 
     logger.info("Completed processing projects.")
 
