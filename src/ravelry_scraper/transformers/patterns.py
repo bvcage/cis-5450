@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 import uuid
 
 from currency_converter import CurrencyConverter
@@ -21,12 +22,14 @@ def process_patterns():
 def _process_patterns():
     logger.info("Processing patterns ...")
 
-    raw_path = Path("data/raw/patterns.jsonl")
+    raw_path = Path("data/raw/patterns/patterns.parquet")
+    raw_file = pq.ParquetFile(raw_path)
     processed_dir = Path("data/processed/patterns")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []
-    for chunk in pd.read_json(raw_path, lines=True, chunksize=100):
+    for batch in raw_file.iter_batches(batch_size=100):
+        chunk = batch.to_pandas()
         cols = chunk.columns.to_list()
         max_num_na = len(chunk.index) * 0.4
         na_cols = [col for col in cols if chunk[col].isna().sum() > max_num_na]
@@ -41,7 +44,8 @@ def _process_patterns():
 
     c = CurrencyConverter()
     total_records = 0
-    for idx, chunk in enumerate(pd.read_json(raw_path, lines=True, chunksize=10_000)):
+    for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
+        chunk = batch.to_pandas()
         logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])

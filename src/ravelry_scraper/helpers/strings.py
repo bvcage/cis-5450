@@ -1,4 +1,8 @@
+from fractions import Fraction
+
 import inflect
+import numpy as np
+import pandas as pd
 import unicodedata
 
 ie = inflect.engine()
@@ -12,13 +16,31 @@ def to_plural(word: str):
 
 # used by pattern_needle_sizes
 def fraction_to_float(fraction: str):
+    if pd.isna(fraction):
+        return np.nan
+    if isinstance(fraction, (int, float)):
+        return float(fraction)
+
+    fraction = str(fraction).strip()
+    if not fraction:
+        return np.nan
+
+    try:
+        return float(fraction)
+    except ValueError:
+        pass
+
     try:
         frac_val = unicodedata.numeric(fraction[-1])
         whole_num = fraction[:-1].strip()
-
-        if whole_num:
-            return float(whole_num) + frac_val
-        else:
-            return frac_val
+        return float(whole_num) + frac_val if whole_num else float(frac_val)
     except (TypeError, ValueError):
-        return fraction
+        pass
+
+    try:
+        parts = fraction.split()
+        if len(parts) == 2:
+            whole_num, frac = parts
+            return float(whole_num) + float(Fraction(frac))
+    except (ValueError, ZeroDivisionError):
+        return np.nan
