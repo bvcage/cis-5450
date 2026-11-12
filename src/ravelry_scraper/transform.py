@@ -85,9 +85,10 @@ def extract_nested_data(series: pd.Series, category: str):
     if isinstance(series.iloc[0], list): series = series.explode()
     series = series.dropna()
     df = series.apply(pd.Series)
-    if category == 'pattern_needle_sizes':
+    if category in ['pattern_needle_sizes', 'min_needle_sizes', 'max_needle_sizes']:
         for col in ['us','metric']:
             df[col] = df[col].apply(fraction_to_float)
+        category = 'needle_sizes'
     if category == 'pattern_categories':
         try:
             df['parent_id'] = df.apply(get_ids, axis=1, column='parent', id='id')
