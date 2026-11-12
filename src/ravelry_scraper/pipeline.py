@@ -10,17 +10,15 @@ from .state import StateManager
 from .transform import process_projects
 
 MODULE = Path(__file__).stem
-
+logger = get_logger(MODULE)
 
 def initialize_pipeline():
     client = RavelryClient()
     state = StateManager()
-    logger = get_logger(MODULE)
 
     return (
         client,
         state,
-        logger,
     )
 
 
@@ -39,7 +37,7 @@ def run_pipeline(
 
     if not category in ["patterns", "designers", "yarns"]: return # todo
 
-    client, state, logger = initialize_pipeline()
+    client, state = initialize_pipeline()
 
     batch_size = min(max_count, batch_size)
 
@@ -107,7 +105,7 @@ def run_search_pipeline(
     if category not in ["projects"]: return # todo
 
     start_time = datetime.now(UTC)
-    client, state, logger = initialize_pipeline()
+    client = initialize_pipeline()
 
     endpoint = f"/{category}/search.json"
     records = []

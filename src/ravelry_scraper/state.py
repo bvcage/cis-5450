@@ -4,17 +4,14 @@ from pathlib import Path
 
 from .logger import get_logger
 
-
 MODULE = Path(__file__).stem
 logger = get_logger(MODULE)
-
 
 class StateManager:
     def __init__(self, state_filepath: str = "data/state.json"):
         self.path = Path(state_filepath)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.state = self._load_state()
-
     
     def _load_state(self):
         if not self.path.exists():
@@ -26,11 +23,9 @@ class StateManager:
             logger.error(f"Could not load ravelry_scraper.state from file: {self.path}")
             raise
 
-
     def get_cursor(self, category: str, primary_key: str = "max_id"):
         return self.state.get(category, {}).get(primary_key, 0)
 
-    
     def update_checkpoint(self, category: str, state_changes: dict, replace=False):
         if replace:
             self.state[category] = state_changes | { "updated_at": datetime.now(UTC).isoformat() }

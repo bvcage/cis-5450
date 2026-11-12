@@ -11,11 +11,11 @@ from ..logger import get_logger
 
 curr_file = Path(__file__).resolve()
 MODULE = f"{curr_file.parent.name}/{curr_file.stem}"
+logger = get_logger(MODULE)
 
 # Docs: https://www.ravelry.com/api#Pattern_full_result
 def process_patterns():
     start_time = datetime.now(UTC)
-    logger = get_logger(MODULE)
     logger.info("Processing patterns ...")
 
     raw_path = Path("data/raw/patterns.jsonl")
@@ -41,8 +41,8 @@ def process_patterns():
     total_chunks = 0
     total_records = 0
     for idx, chunk in enumerate(pd.read_json(raw_path, lines=True, chunksize=10_000)):
-        logger.info(f"Processing chunk {idx} with {len(chunk)} rows")
         total_chunks += 1
+        logger.info(f"Processing chunk {idx} with {len(chunk)} rows")
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
 
@@ -70,8 +70,6 @@ def process_patterns():
     logger.log_duration(start_time, end_time)
 
 def process_pattern_chunk(chunk, c):
-    logger = get_logger(MODULE)
-
     # drop gauge columns
     gauge_cols = [col for col in chunk.columns if 'gauge' in col]
     chunk = chunk.drop(columns=gauge_cols)

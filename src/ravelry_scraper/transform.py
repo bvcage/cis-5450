@@ -15,11 +15,11 @@ from .helpers.transformers import extract_nested_data, extract_users, get_count,
 from .logger import get_logger
 
 MODULE = Path(__file__).stem
+logger = get_logger(MODULE)
 
 # Docs: https://www.ravelry.com/api#Pattern_full_result
 def process_patterns():
     start_time = datetime.now(UTC)
-    logger = get_logger(MODULE)
     logger.info("Processing projects ...")
 
     raw_path = Path("data/raw/patterns.jsonl")
@@ -60,8 +60,6 @@ def process_patterns():
     logger.log_duration(start_time, end_time)
 
 def process_pattern_chunk(chunk, c):
-    logger = get_logger(MODULE)
-
     # drop gauge columns
     gauge_cols = [col for col in chunk.columns if 'gauge' in col]
     chunk = chunk.drop(columns=gauge_cols)
@@ -116,7 +114,6 @@ def process_pattern_chunk(chunk, c):
 
 def process_projects():
     start_time = datetime.now(UTC)
-    logger = get_logger(MODULE)
     logger.info("Processing projects ...")
 
     raw_path = Path("data/raw/projects.jsonl")
