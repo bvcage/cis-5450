@@ -4,6 +4,8 @@ import uuid
 
 from pathlib import Path
 
+from ravelry_scraper.constants import DATA_DIR
+
 from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
 from ..helpers.transformers import extract_users, get_ids, process_datetime_columns, process_int_columns
 from ..logger import get_logger
@@ -19,9 +21,9 @@ def process_designers():
 def _process_designers():
     logger.info("Processing designers ...")
 
-    raw_path = Path("data/raw/designers.parquet")
+    raw_path = Path(f"{DATA_DIR}/raw/designers.parquet")
     raw_file = pq.ParquetFile(raw_path)
-    processed_dir = Path("data/processed/designers")
+    processed_dir = Path(f"{DATA_DIR}/processed/designers")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []

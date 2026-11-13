@@ -1,6 +1,6 @@
 import pyarrow.parquet as pq
 import uuid
-
+from ravelry_scraper.constants import DATA_DIR
 from pathlib import Path
 
 from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
@@ -18,9 +18,9 @@ def process_yarns():
 def _process_yarns():
     logger.info("Processing yarns ...")
 
-    raw_path = Path("data/raw/yarns.parquet")
+    raw_path = Path(f"{DATA_DIR}/raw/yarns.parquet")
     raw_file = pq.ParquetFile(raw_path)
-    processed_dir = Path("data/processed/yarns")
+    processed_dir = Path(f"{DATA_DIR}/processed/yarns")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []

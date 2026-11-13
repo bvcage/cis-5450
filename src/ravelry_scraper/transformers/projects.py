@@ -3,6 +3,7 @@ import pyarrow.parquet as pq
 import uuid
 
 from pathlib import Path
+from ravelry_scraper.constants import DATA_DIR
 
 from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
 from ..helpers.transformers import extract_users, process_datetime_columns, process_int_columns
@@ -19,9 +20,9 @@ def process_projects():
 def _process_projects():
     logger.info("Processing projects ...")
 
-    raw_path = Path("data/raw/projects/projects.parquet")
+    raw_path = Path(f"{DATA_DIR}/raw/projects/projects.parquet")
     raw_file = pq.ParquetFile(raw_path)
-    processed_dir = Path("data/processed/projects")
+    processed_dir = Path(f"{DATA_DIR}/processed/projects")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []

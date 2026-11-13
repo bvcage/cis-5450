@@ -1,7 +1,9 @@
 import logging
+
 from contextlib import contextmanager
 from datetime import datetime, UTC
 from pathlib import Path
+from ravelry_scraper.constants import LOGS_DIR
 
 class RavelryLogger(logging.LoggerAdapter):
     @contextmanager
@@ -37,8 +39,7 @@ class DailyFileHandler(logging.FileHandler):
         super().emit(record)
 
 def get_logger(module_name: str) -> logging.Logger:
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
+    LOGS_DIR.mkdir(exist_ok=True)
 
     logger = logging.getLogger(module_name)
 
@@ -53,7 +54,7 @@ def get_logger(module_name: str) -> logging.Logger:
     )
 
     # Persisted logging
-    file_handler = DailyFileHandler(log_dir, encoding="utf-8")
+    file_handler = DailyFileHandler(LOGS_DIR, encoding="utf-8")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 

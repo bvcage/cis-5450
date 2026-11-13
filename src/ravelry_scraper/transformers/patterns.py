@@ -5,6 +5,8 @@ import uuid
 from currency_converter import CurrencyConverter
 from pathlib import Path
 
+from ravelry_scraper.constants import DATA_DIR
+
 from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
 from ..helpers.transformers import extract_linked_data, get_count, get_ids, process_int_columns, process_datetime_columns, process_boolean_columns
 from ..logger import get_logger
@@ -21,9 +23,9 @@ def process_patterns():
 def _process_patterns():
     logger.info("Processing patterns ...")
 
-    raw_path = Path("data/raw/patterns/patterns.parquet")
+    raw_path = Path(f"{DATA_DIR}/raw/patterns/patterns.parquet")
     raw_file = pq.ParquetFile(raw_path)
-    processed_dir = Path("data/processed/patterns")
+    processed_dir = Path(f"{DATA_DIR}/processed/patterns")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []

@@ -5,6 +5,7 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 from .client import RavelryClient
+from .constants import DATA_DIR, SUPPORTED_PIPELINES, SUPPORTED_SEARCH_PIPELINES
 from .exceptions import RavelryScraperError, RequestError
 from .helpers.jsonl import append_to_jsonl
 from .helpers.parquet import combine_parquet_dir, de_dup_parquet
@@ -37,7 +38,7 @@ def run_pipeline(
     batch_size=1_000,
     from_last_success=True,
 ):
-    if not category in ["patterns", "designers", "yarns"]: return # todo
+    if not category in SUPPORTED_PIPELINES: return # todo
 
     with logger.log_duration():
         _run_pipeline(
@@ -55,7 +56,7 @@ def _run_pipeline(
 ):
     client, state, stats = initialize_pipeline()
 
-    cat_dir = Path(f"data/raw/{category}")
+    cat_dir = Path(f"{DATA_DIR}/raw/{category}")
     cat_dir.mkdir(parents=True, exist_ok=True)
 
     batch_size = min(max_count, batch_size)
@@ -111,7 +112,7 @@ def _run_pipeline(
                     compression='snappy'
                 )
 
-            if errors: append_to_jsonl(errors, Path(f"data/failed/{category}.jsonl"))
+            if errors: append_to_jsonl(errors, Path(f"{DATA_DIR}/failed/{category}.jsonl"))
 
             state.update_checkpoint(category, {
                 "max_successful_id": last_successful_id,
@@ -127,7 +128,7 @@ def run_search_pipeline(
     category="projects",
     max_pages=10_000,
 ):
-    if category not in ["projects"]: return # todo
+    if category not in SUPPORTED_SEARCH_PIPELINES: return # todo
 
     with logger.log_duration():
         _run_search_pipeline(
@@ -141,7 +142,7 @@ def _run_search_pipeline(
 ):
     client, _, _ = initialize_pipeline()
 
-    cat_dir = Path(f"data/raw/{category}")
+    cat_dir = Path(f"{DATA_DIR}/raw/{category}")
     cat_dir.mkdir(parents=True, exist_ok=True)
 
     endpoint = f"/{category}/search.json"
