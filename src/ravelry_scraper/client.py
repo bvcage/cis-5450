@@ -29,15 +29,24 @@ class RavelryClient:
 
             try:
                 data = response.json()
-                logger.info(f"Successfully retrieved JSON from endpoint: {str(response.url).replace(self.base_url, "")}")
+                logger.info(
+                    f"Successfully retrieved JSON from endpoint: {str(response.url).replace(self.base_url, "")}",
+                    extra={"verbose": True}
+                )
 
                 return data
             except JSONDecodeError:
-                logger.warning("Response OK but not JSON")
+                logger.warning(
+                    "Response OK but not JSON",
+                    extra={"verbose": True}
+                )
                 raise InvalidPayloadError(f"Expected JSON but received raw body from endpoint: {endpoint}")
 
         except httpx.HTTPStatusError as err:
-            logger.error(f"HTTP error [{err.response.status_code}] on endpoint: {endpoint}")
+            logger.error(
+                f"HTTP error [{err.response.status_code}] on endpoint: {endpoint}",
+                extra={"verbose": False if err.response.status_code == 400 else True}
+            )
             raise HTTPStatusError(
                 endpoint=endpoint,
                 message=f"Server returned error code for endpoint: {endpoint}",
@@ -55,6 +64,6 @@ class RavelryClient:
                 cause=err
             ) from err
 
-        except err:
-            logger.error(f"UNKNOWN ERROR on endpoint: {endpoint}")
+        except Exception as err:
+            logger.error(f"UNKNOWN ERROR on endpoint: {endpoint}\n{str(err)}")
             raise

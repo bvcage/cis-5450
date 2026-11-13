@@ -1,17 +1,17 @@
 {
     "patterns": {
         "max_id": 1388766,
-        "updated_at": "2026-11-12T21:54:18.154594+00:00",
+        "updated_at": "2026-11-13T04:14:46.131885+00:00",
         "max_successful_id": 1370996
     },
     "designers": {
-        "max_successful_id": 170122,
+        "max_successful_id": 170742,
         "max_id": 171814,
-        "updated_at": "2026-11-02T22:29:42.763510+00:00"
+        "updated_at": "2026-11-13T04:14:53.227571+00:00"
     },
     "yarns": {
-        "max_successful_id": 260649,
+        "max_successful_id": 260885,
         "max_id": 261043,
-        "updated_at": "2026-11-05T16:53:36.750930+00:00"
+        "updated_at": "2026-11-13T04:15:00.662266+00:00"
     }
 }

@@ -4,6 +4,8 @@ import uuid
 from datetime import datetime, UTC
 from pathlib import Path
 
+from ravelry_scraper.helpers.strings import to_plural, to_singular
+
 from .client import RavelryClient
 from .constants import DATA_DIR, SUPPORTED_PIPELINES, SUPPORTED_SEARCH_PIPELINES
 from .exceptions import RavelryScraperError, RequestError
@@ -40,6 +42,7 @@ def run_pipeline(
 ):
     if not category in SUPPORTED_PIPELINES: return # todo
 
+    logger.info(f"Scraping {to_plural(category)}")
     with logger.log_duration():
         _run_pipeline(
             category,
@@ -77,6 +80,8 @@ def _run_pipeline(
         try:
             for id in id_range:
                 endpoint = f"/{category}/{id}.json"
+                last_id = max(last_id, id)
+                total_count += 1
 
                 try:
                     data = client.fetch_endpoint(endpoint)
@@ -92,16 +97,13 @@ def _run_pipeline(
                     errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
 
                     if consecutive_error_count >= 100:
-                        logger.info(f"Stopping scrape after {consecutive_error_count} consecutive errors.")
-                        return
+                        logger.info(f"Stopping scrape after {consecutive_error_count} consecutive errors.", extra={"verbose": True})
+                        break
                     if isinstance(err, RequestError):
-                        logger.error(f"Stopping scrape after request failure on endpoint: {endpoint}\nLeaving checkpoint at {last_id} for retry.")
-                        return
-
-                total_count += 1
-                last_id = max(last_id, id)
+                        logger.error(f"Stopping scrape after request failure on endpoint: {endpoint}\nLeaving checkpoint at {last_id} for retry.", extra={"verbose": True})
+                        break
         finally:
-            logger.info("Saving batch results & updating checkpoint...")
+            logger.info(f"Saving {len(records)} {to_singular(category)} results & updating checkpoint", extra={"verbose": True})
 
             if records:
                 df = pd.DataFrame(records)
@@ -119,10 +121,13 @@ def _run_pipeline(
                 "max_id": last_id,
             })
 
-    logger.info("Combining parquet files...")
-    combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
+    if records:
+        logger.info("Appending files")
+        combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
+        logger.info("Deduplicating records")
+        de_dup_parquet(cat_dir / f"{category}.parquet")
 
-    logger.info(f"Scrape complete for {total_count} {category}.")
+    logger.info(f"Scrape complete for {total_count} endpoints: {len(records)} new {to_plural(category)} added")
 
 def run_search_pipeline(
     category="projects",
@@ -140,6 +145,7 @@ def _run_search_pipeline(
     category,
     max_pages,
 ):
+    logger.info(f"Scraping {to_plural(category)}")
     client, _, _ = initialize_pipeline()
 
     cat_dir = Path(f"{DATA_DIR}/raw/{category}")
@@ -183,9 +189,9 @@ def _run_search_pipeline(
                 )
                 records = []
 
-    logger.info("Combining parquet files...")
+    logger.info(f"Appending new {to_plural(category)}")
     combined_file_path = combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
-    logger.info(f"Deduping {category}...")
+    logger.info(f"Deduplicating records")
     de_dup_parquet(combined_file_path)
 
     logger.info(f"Scrape complete for {category}.")
