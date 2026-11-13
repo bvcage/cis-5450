@@ -3,6 +3,7 @@ import uuid
 
 from datetime import datetime, UTC
 from pathlib import Path
+from time import sleep
 
 from ravelry_scraper.helpers.strings import to_plural, to_singular
 
@@ -128,6 +129,13 @@ def _run_pipeline(
         de_dup_parquet(cat_dir.with_suffix(".parquet"))
 
     logger.info(f"Scrape complete for {total_count} endpoints: {len(records)} new {to_plural(category)} added")
+
+def run_search_pipeline_for_all_sort_orders():
+    for idx, sort_option in enumerate(SEARCH_SORT_OPTIONS):
+        if idx > 0: sleep(60 * 15)
+        run_search_pipeline(sort=sort_option)
+        sleep(60 * 15)
+        run_search_pipeline(sort=f"{sort_option}_") # reversed
 
 def run_search_pipeline(
     category="projects",
