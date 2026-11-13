@@ -7,7 +7,7 @@ from pathlib import Path
 from ravelry_scraper.helpers.strings import to_plural, to_singular
 
 from .client import RavelryClient
-from .constants import DATA_DIR, SUPPORTED_PIPELINES, SUPPORTED_SEARCH_PIPELINES
+from .constants import DATA_DIR, SEARCH_SORT_OPTIONS,SUPPORTED_PIPELINES, SUPPORTED_SEARCH_PIPELINES
 from .exceptions import RavelryScraperError, RequestError
 from .helpers.jsonl import append_to_jsonl
 from .helpers.parquet import combine_parquet_dir, de_dup_parquet
@@ -132,6 +132,8 @@ def _run_pipeline(
 def run_search_pipeline(
     category="projects",
     max_pages=10_000,
+    query=None,
+    sort=None,
 ):
     if category not in SUPPORTED_SEARCH_PIPELINES: return # TODO
 
@@ -139,11 +141,15 @@ def run_search_pipeline(
         _run_search_pipeline(
             category,
             max_pages,
+            query,
+            sort,
         )
 
 def _run_search_pipeline(
     category,
     max_pages,
+    query,
+    sort,
 ):
     logger.info(f"Scraping {to_plural(category)}")
     client, _, _ = initialize_pipeline()
@@ -159,7 +165,7 @@ def _run_search_pipeline(
 
     while page_num <= max_pages and consecutive_error_count < 5:
         try:
-            data = client.fetch_endpoint(endpoint, params={"page": page_num})
+            data = client.fetch_endpoint(endpoint, params={"page": page_num, "query": query, "sort": sort})
             first_key = next(iter(data))
             results = data[first_key]
             for result in results:
@@ -168,6 +174,7 @@ def _run_search_pipeline(
             if page_num == 1:
                 paginator = data['paginator']
                 if 'last_page' in paginator:
+                    logger.info(f"Number of pages: {paginator['last_page']}")
                     max_pages = min(max_pages, paginator['last_page'])
             
             consecutive_error_count = 0
