@@ -31,24 +31,26 @@ def _process_yarns():
         na_cols = [col for col in cols if chunk[col].isna().sum() > max_num_na]
         break
 
-    must_keep_cols = ['max_gauge', 'rating_average', 'rating_total']
+    must_keep_cols = ['min_gauge', 'max_gauge', 'rating_average', 'rating_total']
     unused_cols = ['permalink', 'notes_html', 'texture', 'yarn_attributes', 'yarn_provenance', 'grams', 'name', 'gauge_divisor']
 
     drop_cols = set(na_cols + unused_cols)
     drop_cols = [col for col in drop_cols if col not in must_keep_cols]
 
-    logger.info(f"Dropping columns from dataset: {drop_cols}")
+    logger.info(f"Dropping columns from dataset:\n{', '.join(sorted(drop_cols))}")
 
     total_records = 0
+    total_retained = 0
     for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
         chunk = batch.to_pandas()
-        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
+        total_records += len(chunk)
+        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows", extra={"verbose": True})
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
         processed_chunk = process_yarn_chunk(chunk)
 
-        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
-        total_records += len(processed_chunk)
+        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows", extra={"verbose": True})
+        total_retained += len(processed_chunk)
 
         processed_chunk.to_parquet(
             processed_dir / f"{uuid.uuid4().hex}.parquet",
@@ -57,13 +59,14 @@ def _process_yarns():
             compression='snappy'
         )
 
-    logger.info(f"Total chunks processed: {idx+1}")
+    logger.info(f"Total chunks processed: {idx+1}", extra={"verbose": True})
     logger.info(f"Total records processed: {total_records}")
+    logger.info(f"Total records retained: {total_retained}")
 
     combined_file_path = combine_parquet_dir(processed_dir)
     if combined_file_path: de_dup_parquet(combined_file_path)
 
-    logger.info("Completed processing yarns.")
+    logger.info("Completed processing for yarns.")
 
 def process_yarn_chunk(chunk):
     chunk = process_boolean_columns(chunk, ['discontinued', 'machine_washable'])
@@ -88,4 +91,11 @@ def process_yarn_chunk(chunk):
         chunk[f"{col}_ids"] = chunk.apply(get_ids, axis=1, column=col)
         chunk = chunk.drop(columns=[col])
 
+    return chunk
+
+def _im_setup():
+    raw_path = Path(f"{DATA_DIR}/raw/yarns.parquet")
+    raw_file = pq.ParquetFile(raw_path)
+    batch = next(raw_file.iter_batches(batch_size=10_000))
+    chunk = batch.to_pandas()
     return chunk

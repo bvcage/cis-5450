@@ -123,9 +123,9 @@ def _run_pipeline(
 
     if records:
         logger.info("Appending files")
-        combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
+        combine_parquet_dir(cat_dir)
         logger.info("Deduplicating records")
-        de_dup_parquet(cat_dir / f"{category}.parquet")
+        de_dup_parquet(cat_dir.with_suffix(".parquet"))
 
     logger.info(f"Scrape complete for {total_count} endpoints: {len(records)} new {to_plural(category)} added")
 
@@ -190,7 +190,7 @@ def _run_search_pipeline(
                 records = []
 
     logger.info(f"Appending new {to_plural(category)}")
-    combined_file_path = combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
+    combined_file_path = combine_parquet_dir(cat_dir)
     logger.info(f"Deduplicating records")
     de_dup_parquet(combined_file_path)
 

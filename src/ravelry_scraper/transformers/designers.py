@@ -39,16 +39,16 @@ def _process_designers():
 
     logger.info(f"Dropping columns from dataset: {drop_cols.tolist()}")
 
-    total_records = 0
+    total_retained = 0
     for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
         chunk = batch.to_pandas()
-        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
+        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows", extra={"verbose": True})
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
         processed_chunk = process_designer_chunk(chunk)
 
-        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
-        total_records += len(processed_chunk)
+        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows", extra={"verbose": True})
+        total_retained += len(processed_chunk)
 
         processed_chunk.to_parquet(
             processed_dir / f"{uuid.uuid4().hex}.parquet",
@@ -57,8 +57,8 @@ def _process_designers():
             compression='snappy'
         )
 
-    logger.info(f"Total chunks processed: {idx+1}")
-    logger.info(f"Total records processed: {total_records}")
+    logger.info(f"Total chunks processed: {idx+1}", extra={"verbose": True})
+    logger.info(f"Total records retained: {total_retained}")
 
     combined_file_path = combine_parquet_dir(processed_dir)
     if combined_file_path: de_dup_parquet(combined_file_path)

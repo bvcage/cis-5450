@@ -43,6 +43,8 @@ def combine_parquet_dir(
     tmp_dest_path = destination_path.with_suffix('.tmp.parquet')
 
     files = list(source_dir.glob("*.parquet"))
+    if destination_path.is_file() and destination_path.suffix == ".parquet":
+        files.append(destination_path)
 
     lazy_frames = [
         pl.scan_parquet(f) for f in sorted(files)
@@ -65,15 +67,25 @@ def de_dup_parquet(
     if not source_path.is_file(): return # todo
     if not source_path.suffix == ".parquet": return # todo
 
-    df = (
+    temp_path = source_path.with_suffix(".tmp.parquet")
+    output_path = destination_path if destination_path else temp_path
+
+    keep_indices = (
         pl.scan_parquet(source_path)
+        .select(de_dup_by)
+        .with_row_index("row_nr")
         .unique(subset=[de_dup_by], keep="last")
-        .collect(engine="streaming")
+        .select("row_nr")
+        .collect()
     )
 
-    if destination_path:
-        df.write_parquet(destination_path, compression='snappy')
-    else:
-        temp_path = source_path.with_suffix(".tmp")
-        df.write_parquet(temp_path, compression='snappy')
+    (
+        pl.scan_parquet(source_path)
+        .with_row_index("row_nr")
+        .join(keep_indices.lazy(), on="row_nr", how="semi")
+        .drop("row_nr")
+        .sink_parquet(output_path, compression="snappy")
+    )
+
+    if not destination_path:
         temp_path.replace(source_path)

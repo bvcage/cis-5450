@@ -20,7 +20,7 @@ def process_projects():
 def _process_projects():
     logger.info("Processing projects ...")
 
-    raw_path = Path(f"{DATA_DIR}/raw/projects/projects.parquet")
+    raw_path = Path(f"{DATA_DIR}/raw/projects.parquet")
     raw_file = pq.ParquetFile(raw_path)
     processed_dir = Path(f"{DATA_DIR}/processed/projects")
     processed_dir.mkdir(parents=True, exist_ok=True)
@@ -41,12 +41,12 @@ def _process_projects():
     total_records = 0
     for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
         chunk = batch.to_pandas()
-        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
+        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows", extra={"verbose": True})
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
         processed_chunk = process_project_chunk(chunk)
 
-        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
+        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows", extra={"verbose": True})
         total_records += len(processed_chunk)
 
         processed_chunk.to_parquet(
