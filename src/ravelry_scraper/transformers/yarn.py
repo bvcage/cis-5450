@@ -27,6 +27,7 @@ class YarnTransformer(BaseTransformer):
     id_cols: ClassVar[list[str]] = ["id"]
     boolean_cols: ClassVar[list[str]] = ['discontinued', 'machine_washable']
     datetime_cols: ClassVar[list[str]] = ["scraped_at"]
+    # TODO: Yarn Fibers not extracting correctly?
     extract_cols: ClassVar[list[str]] = ['min_needle_size', 'max_needle_size', 'yarn_company', 'yarn_fibers', 'yarn_weight']
     int_cols: ClassVar[list[str]] = ['rating_total', 'yardage']
 
