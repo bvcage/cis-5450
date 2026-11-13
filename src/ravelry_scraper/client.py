@@ -29,10 +29,7 @@ class RavelryClient:
 
             try:
                 data = response.json()
-                logger.info(
-                    f"Successfully retrieved JSON from endpoint: {str(response.url).replace(self.base_url, "")}",
-                    extra={"verbose": True}
-                )
+                logger.verbose_info(f"Successfully retrieved JSON from endpoint: {str(response.url).replace(self.base_url, "")}")
 
                 return data
             except JSONDecodeError:

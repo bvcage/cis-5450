@@ -98,13 +98,13 @@ def _run_pipeline(
                     errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
 
                     if consecutive_error_count >= 100:
-                        logger.info(f"Stopping scrape after {consecutive_error_count} consecutive errors.", extra={"verbose": True})
+                        logger.verbose_info(f"Stopping scrape after {consecutive_error_count} consecutive errors.")
                         break
                     if isinstance(err, RequestError):
-                        logger.error(f"Stopping scrape after request failure on endpoint: {endpoint}\nLeaving checkpoint at {last_id} for retry.", extra={"verbose": True})
+                        logger.verbose_info(f"Stopping scrape after request failure on endpoint: {endpoint}\nLeaving checkpoint at {last_id} for retry.")
                         break
         finally:
-            logger.info(f"Saving {len(records)} {to_singular(category)} results & updating checkpoint", extra={"verbose": True})
+            logger.verbose_info(f"Saving {len(records)} {to_singular(category)} results & updating checkpoint")
 
             if records:
                 df = pd.DataFrame(records)

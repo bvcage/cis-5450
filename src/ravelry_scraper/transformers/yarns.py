@@ -44,12 +44,12 @@ def _process_yarns():
     for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
         chunk = batch.to_pandas()
         total_records += len(chunk)
-        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows", extra={"verbose": True})
+        logger.verbose_info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
         processed_chunk = process_yarn_chunk(chunk)
 
-        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows", extra={"verbose": True})
+        logger.verbose_info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
         total_retained += len(processed_chunk)
 
         processed_chunk.to_parquet(
@@ -59,7 +59,7 @@ def _process_yarns():
             compression='snappy'
         )
 
-    logger.info(f"Total chunks processed: {idx+1}", extra={"verbose": True})
+    logger.verbose_info(f"Total chunks processed: {idx+1}")
     logger.info(f"Total records processed: {total_records}")
     logger.info(f"Total records retained: {total_retained}")
 
@@ -91,11 +91,4 @@ def process_yarn_chunk(chunk):
         chunk[f"{col}_ids"] = chunk.apply(get_ids, axis=1, column=col)
         chunk = chunk.drop(columns=[col])
 
-    return chunk
-
-def _im_setup():
-    raw_path = Path(f"{DATA_DIR}/raw/yarns.parquet")
-    raw_file = pq.ParquetFile(raw_path)
-    batch = next(raw_file.iter_batches(batch_size=10_000))
-    chunk = batch.to_pandas()
     return chunk

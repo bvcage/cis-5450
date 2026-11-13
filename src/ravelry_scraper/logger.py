@@ -11,7 +11,6 @@ LogMode = Literal["verbose", "essential"]
 
 class RavelryLogger(logging.LoggerAdapter):
     def process(self, msg, kwargs):
-        # Merge adapter's default extra with any per-call extra={"verbose": True}
         extra = self.extra.copy()
         if "extra" in kwargs:
             extra.update(kwargs["extra"])
@@ -29,8 +28,8 @@ class RavelryLogger(logging.LoggerAdapter):
         yield
         end_time = datetime.now(UTC)
 
-        self.info(f"Began at: {start_time.astimezone().strftime(time_format)}", extra={"verbose": True})
-        self.info(f"Ended at: {end_time.astimezone().strftime(time_format)}", extra={"verbose": True})
+        self.verbose_info(f"Began at: {start_time.astimezone().strftime(time_format)}")
+        self.verbose_info(f"Ended at: {end_time.astimezone().strftime(time_format)}")
         self.info(f"Elapsed time: {str(end_time - start_time)}")
 
 class EssentialLogFilter(logging.Filter):
