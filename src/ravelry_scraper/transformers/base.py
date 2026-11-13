@@ -1,9 +1,13 @@
+import os
 from pathlib import Path
 from typing import ClassVar
 
 import polars as pl
+import polars.selectors as cs
 
+from ravelry_scraper.helpers.strings import to_singular
 from ravelry_scraper.logger import get_logger
+from ravelry_scraper.transformers.extractors import extract_linked_data
 
 curr_file = Path(__file__).resolve()
 MODULE = f"{curr_file.parent.name}/{curr_file.stem}"
@@ -19,6 +23,13 @@ class BaseTransformer:
     na_max_pct: float = 0.20
     must_keep_cols: ClassVar[list[str]] = []
     unused_cols: ClassVar[list[str]] = []
+
+    # type cast columns
+    id_cols: ClassVar[list[str]] = ["id"]
+    boolean_cols: ClassVar[list[str]] = []
+    datetime_cols: ClassVar[list[str]] = ["scraped_at"]
+    extract_cols: ClassVar[list[str]] = []
+    int_cols: ClassVar[list[str]] = []
 
     def __init__(self, source_path: Path, output_path: Path):
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -82,10 +93,39 @@ class BaseTransformer:
 
             temp_path = self.output_path.with_suffix(".tmp.parquet")
             combined_df.sink_parquet(temp_path, compression='snappy')
-            # os.replace(temp_path, self.output_path)
+            os.replace(temp_path, self.output_path)
         else:
             df.sink_parquet(self.output_path, compression='snappy')
 
     def transform(self, df: pl.LazyFrame) -> pl.LazyFrame:
-        """Hook for entity-specific logic."""
-        return df
+        # extract linked data
+        for column in self.extract_cols:
+            extract_linked_data(df, column)
+
+            col_dtype = df.collect_schema()[column]
+            if isinstance(col_dtype, (pl.List, pl.Array)):
+                id_expr = (
+                    pl.col(column)
+                    .list.eval(pl.element().struct.field("id"))
+                    .cast(pl.List(pl.Int64), strict=False)
+                    .alias(f"{to_singular(column)}_ids")
+                )
+            else:
+                id_expr = (
+                    pl.col(column)
+                    .struct.field("id")
+                    .cast(pl.Int64, strict=False)
+                    .alias(f"{to_singular(column)}_id")
+                )
+
+            df = df.with_columns(id_expr).drop(column)
+
+        # type cast columns
+        count_cols = [col for col in df.collect_schema().names() if col.endswith("count")]
+        return df.with_columns(
+            cs.by_name(*self.id_cols, require_all=False).cast(pl.Int64, strict=False),
+            cs.by_name(count_cols, require_all=False).cast(pl.Int64, strict=False),
+            cs.by_name(*self.boolean_cols, require_all=False).cast(pl.Boolean, strict=False),
+            cs.by_name(*self.datetime_cols, require_all=False).str.to_datetime(time_zone="UTC", strict=False),
+            cs.by_name(*self.int_cols, require_all=False).cast(pl.Int64, strict=False),  
+        )
