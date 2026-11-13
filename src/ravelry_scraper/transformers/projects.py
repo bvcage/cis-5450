@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import pyarrow.parquet as pq
 import uuid
 
@@ -33,7 +32,7 @@ def _process_projects():
         na_cols = [col for col in cols if chunk[col].isna().sum() > max_num_na]
         break
 
-    unused_cols = ['made_for', 'first_photo', 'name', 'permalink', 'links', 'pattern_name', 'project_status_id', 'gauge_pattern', 'completed_day_set', 'started_day_set']
+    unused_cols = ['made_for', 'first_photo', 'name', 'permalink', 'links', 'pattern_name', 'project_status_id', 'gauge_pattern', 'completed_day_set', 'started_day_set', 'size']
     drop_cols = np.union1d(na_cols, unused_cols)
 
     logger.info(f"Dropping columns from dataset: {drop_cols.tolist()}")
@@ -68,7 +67,6 @@ def process_project_chunk(chunk):
     extract_users(chunk['user'])
     chunk = chunk.drop(columns=['user'])
 
-    # chunk = process_int_columns(chunk, bool_cols)
     chunk = process_int_columns(chunk, ['id', 'craft_id', 'pattern_id', 'user_id'])
     chunk = process_int_columns(chunk, [col for col in chunk.columns if col.endswith('count')])
     chunk = process_datetime_columns(chunk, ['completed', 'created_at', 'started', 'updated_at', 'scraped_at', 'project_status_changed'])

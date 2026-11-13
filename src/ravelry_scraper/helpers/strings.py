@@ -1,9 +1,9 @@
-from fractions import Fraction
-
 import inflect
 import numpy as np
 import pandas as pd
 import unicodedata
+
+from fractions import Fraction
 
 ie = inflect.engine()
 ie.defnoun('craft', 'crafts')

@@ -28,7 +28,7 @@ def initialize_pipeline():
     )
 
 def run_projects_pipeline(max_pages = None):
-    run_search_pipeline("projects")
+    run_search_pipeline("projects", max_pages)
     process_projects()
 
 def run_pipeline(

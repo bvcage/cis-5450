@@ -3,10 +3,11 @@ import pandas as pd
 import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
+
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from ..constants import DATETIME_COLS
+DATETIME_COLS = ["created_at", "extracted_at", "published", "scraped_at", "timestamp", "updated_at"]
 
 def append_to_jsonl(records: list, target: Path):
     if not records: return
@@ -17,7 +18,6 @@ def append_to_jsonl(records: list, target: Path):
         for record in records:
             json_string = json.dumps(record)
             file.write(json_string + "\n")
-
 
 def de_dup_jsonl(
     source_path: Path,
@@ -43,7 +43,6 @@ def de_dup_jsonl(
         temp_path = source_path.with_suffix(".tmp")
         df.write_ndjson(temp_path)
         temp_path.replace(source_path)
-
 
 def convert_to_parquet(source_file: Path, destination: Path = None):
     if not source_file.is_file():

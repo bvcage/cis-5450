@@ -1,11 +1,12 @@
 import numpy as np
 import pandas as pd
+
 from datetime import datetime, UTC
 from pathlib import Path
 
 from .jsonl import de_dup_jsonl
 from .parquet import combine_parquet_files, de_dup_parquet
-from .strings import fraction_to_float
+from .strings import fraction_to_float, to_plural
 
 def extract_nested_data(series: pd.Series, category: str):
     if isinstance(series.iloc[0], (list, np.ndarray)): series = series.explode()
@@ -15,7 +16,7 @@ def extract_nested_data(series: pd.Series, category: str):
         for col in ['us','metric']:
             df[col] = df[col].apply(fraction_to_float)
         category = 'needle_sizes'
-    store_extracted(df, Path(f"data/extracted/{category}"), filetype="parquet")
+    store_extracted(df, Path(f"data/extracted/{to_plural(category)}"), filetype="parquet")
 
 def extract_recursively(row: pd.Series, col: str, category: str):
     if row is None or pd.isnull(row[col]): return # skip invalid rows
@@ -24,7 +25,7 @@ def extract_recursively(row: pd.Series, col: str, category: str):
     while not pd.isnull(sub_record):
         sub_record[f'{col}_id'] = get_ids(row, col)
         next_sub_record = sub_record.pop(col, None)
-        store_extracted(pd.DataFrame([sub_record]), Path(f"data/extracted/{category}"), filetype="parquet")
+        store_extracted(pd.DataFrame([sub_record]), Path(f"data/extracted/{to_plural(category)}"), filetype="parquet")
         sub_record = next_sub_record
 
 def extract_users(users: pd.Series):
@@ -60,7 +61,6 @@ def process_int_columns(chunk, int_cols):
         chunk[col] = chunk[col].astype(int)
     return chunk
 
-# TODO: fix overflow error - need to ensure dates are valid
 def process_datetime_columns(chunk, datetime_cols):
     datetime_cols = [col for col in datetime_cols if col in chunk.columns]
     for col in datetime_cols:

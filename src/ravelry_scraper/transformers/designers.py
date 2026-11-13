@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import pyarrow.parquet as pq
 import uuid
 
@@ -69,7 +68,6 @@ def process_designer_chunk(chunk):
     chunk['user_ids'] = chunk.apply(get_ids, axis=1, column='users')
     chunk = chunk.drop(columns=['users'])
 
-    # chunk = process_int_columns(chunk, bool_cols)
     chunk = process_int_columns(chunk, ['id'])
     chunk = process_int_columns(chunk, [col for col in chunk.columns if col.endswith('count')])
     chunk = process_datetime_columns(chunk, ['scraped_at'])
