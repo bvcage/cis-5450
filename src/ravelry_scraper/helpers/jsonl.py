@@ -24,7 +24,7 @@ def de_dup_jsonl(
     destination_path: Path = None,
     de_dup_by: str = "id",
 ):
-    if not source_path.is_file(): return # todo
+    if not source_path.is_file(): return # TODO
 
     overrides = dict()
     for chunk in pd.read_json(source_path, lines=True, chunksize=1000):

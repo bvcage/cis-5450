@@ -33,10 +33,13 @@ def _process_projects():
         na_cols = [col for col in cols if chunk[col].isna().sum() > max_num_na]
         break
 
-    unused_cols = ['made_for', 'first_photo', 'name', 'permalink', 'links', 'pattern_name', 'project_status_id', 'gauge_pattern', 'completed_day_set', 'started_day_set', 'size']
-    drop_cols = np.union1d(na_cols, unused_cols)
+    must_keep_cols = ['rating']
+    unused_cols = ['made_for', 'first_photo', 'name', 'permalink', 'links', 'pattern_name', 'project_status_id', 'gauge_pattern', 'completed_day_set', 'started_day_set', 'size', 'tag_names']
 
-    logger.info(f"Dropping columns from dataset: {drop_cols.tolist()}")
+    drop_cols = set(na_cols + unused_cols)
+    drop_cols = [col for col in drop_cols if col not in must_keep_cols]
+
+    logger.info(f"Dropping columns from dataset: {', '.join(drop_cols)}")
 
     total_records = 0
     for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
