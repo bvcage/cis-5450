@@ -1,21 +1,24 @@
-import pandas as pd
 import uuid
-
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from time import sleep
 
-from ravelry_scraper.helpers.strings import to_plural, to_singular
+import pandas as pd
 
-from .client import RavelryClient
-from .constants import DATA_DIR, SEARCH_SORT_OPTIONS,SUPPORTED_PIPELINES, SUPPORTED_SEARCH_PIPELINES
-from .exceptions import RavelryScraperError, RequestError
-from .helpers.jsonl import append_to_jsonl
-from .helpers.parquet import combine_parquet_dir, de_dup_parquet
-from .logger import get_logger
-from .state import StateManager
-from .stats import StatsManager
-from .transformers.projects import process_projects
+from ravelry_scraper.client import RavelryClient
+from ravelry_scraper.constants import (
+    DATA_DIR,
+    SEARCH_SORT_OPTIONS,
+    SUPPORTED_PIPELINES,
+    SUPPORTED_SEARCH_PIPELINES,
+)
+from ravelry_scraper.exceptions import RavelryScraperError, RequestError
+from ravelry_scraper.helpers.jsonl import append_to_jsonl
+from ravelry_scraper.helpers.parquet import combine_parquet_dir, de_dup_parquet
+from ravelry_scraper.helpers.strings import to_plural, to_singular
+from ravelry_scraper.logger import get_logger
+from ravelry_scraper.state import StateManager
+from ravelry_scraper.transformers.projects import process_projects
 
 MODULE = Path(__file__).stem
 logger = get_logger(MODULE)
@@ -23,12 +26,10 @@ logger = get_logger(MODULE)
 def initialize_pipeline():
     client = RavelryClient()
     state = StateManager()
-    stats = StatsManager()
 
     return (
         client,
         state,
-        stats,
     )
 
 def run_projects_pipeline(max_pages = None):
@@ -58,7 +59,7 @@ def _run_pipeline(
     batch_size,
     from_last_success,
 ):
-    client, state, stats = initialize_pipeline()
+    client, state = initialize_pipeline()
 
     cat_dir = Path(f"{DATA_DIR}/raw/{category}")
     cat_dir.mkdir(parents=True, exist_ok=True)
@@ -186,7 +187,7 @@ def _run_search_pipeline(
                     max_pages = min(max_pages, paginator['last_page'])
             
             consecutive_error_count = 0
-        except RavelryScraperError as err:
+        except RavelryScraperError:
             consecutive_error_count += 1
 
             if page_num > paginator['last_page']:
@@ -206,7 +207,7 @@ def _run_search_pipeline(
 
     logger.info(f"Appending new {to_plural(category)}")
     combined_file_path = combine_parquet_dir(cat_dir)
-    logger.info(f"Deduplicating records")
+    logger.info("Deduplicating records")
     de_dup_parquet(combined_file_path)
 
     logger.info(f"Scrape complete for {category}.")
