@@ -1,11 +1,11 @@
 import json
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+
 import pandas as pd
 import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
-
-from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 DATETIME_COLS = ["created_at", "extracted_at", "published", "scraped_at", "timestamp", "updated_at"]
 
@@ -21,12 +21,12 @@ def append_to_jsonl(records: list, target: Path):
 
 def de_dup_jsonl(
     source_path: Path,
-    destination_path: Path = None,
+    destination_path: Path | None = None,
     de_dup_by: str = "id",
 ):
     if not source_path.is_file(): return # TODO
 
-    overrides = dict()
+    overrides = {}
     for chunk in pd.read_json(source_path, lines=True, chunksize=1000):
         overrides = {col: pl.Datetime for col in DATETIME_COLS if col in chunk.columns}
         break
@@ -44,7 +44,10 @@ def de_dup_jsonl(
         df.write_ndjson(temp_path)
         temp_path.replace(source_path)
 
-def convert_to_parquet(source_file: Path, destination: Path = None):
+def convert_to_parquet(
+    source_file: Path, 
+    destination: Path | None = None
+):
     if not source_file.is_file():
         raise FileNotFoundError(source_file)
 
@@ -79,16 +82,15 @@ def convert_to_parquet(source_file: Path, destination: Path = None):
         temp_path = Path(temp_file.name)
 
     try:
-        with pq.ParquetWriter(temp_path, schema) as writer:
-            with pd.read_json(
-                source_file, lines=True, chunksize=10_000, dtype=False
-            ) as reader:
-                for chunk in reader:
-                    chunk = chunk.reindex(columns=schema.names)
-                    table = pa.Table.from_pandas(
-                        chunk, schema=schema, preserve_index=False
-                    )
-                    writer.write_table(table)
+        with pq.ParquetWriter(temp_path, schema) as writer, pd.read_json(
+            source_file, lines=True, chunksize=10_000, dtype=False
+        ) as reader:
+            for chunk in reader:
+                chunk = chunk.reindex(columns=schema.names)
+                table = pa.Table.from_pandas(
+                    chunk, schema=schema, preserve_index=False
+                )
+                writer.write_table(table)
         temp_path.replace(destination_file)
     finally:
         temp_path.unlink(missing_ok=True)

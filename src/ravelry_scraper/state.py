@@ -1,9 +1,9 @@
 import json
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
-from .constants import DATA_DIR
-from .logger import get_logger
+from ravelry_scraper.constants import DATA_DIR
+from ravelry_scraper.logger import get_logger
 
 MODULE = Path(__file__).stem
 logger = get_logger(MODULE)
@@ -31,7 +31,7 @@ class StateManager:
         if replace:
             self.state[category] = state_changes | { "updated_at": datetime.now(UTC).isoformat() }
         else:
-            existing_state = self.state[category] if category in self.state else {}
+            existing_state = self.state.get(category, {})
             self.state[category] = existing_state | state_changes | { "updated_at": datetime.now(UTC).isoformat() }
 
         temp_path = self.path.with_suffix(".tmp")

@@ -1,11 +1,16 @@
-from dotenv import load_dotenv
-from json import JSONDecodeError
-import httpx
 import os
+from json import JSONDecodeError
 from pathlib import Path
 
-from .exceptions import InvalidPayloadError, HTTPStatusError, RequestError
-from .logger import get_logger
+import httpx
+from dotenv import load_dotenv
+
+from ravelry_scraper.exceptions import (
+    HTTPStatusError,
+    InvalidPayloadError,
+    RequestError,
+)
+from ravelry_scraper.logger import get_logger
 
 load_dotenv()
 
@@ -22,7 +27,7 @@ class RavelryClient:
             timeout=10.0
         )
 
-    def fetch_endpoint(self, endpoint: str, params: dict = None) -> dict:
+    def fetch_endpoint(self, endpoint: str, params: dict | None = None) -> dict:
         try:
             response = self.client.get(endpoint, params=params)
             response.raise_for_status()
@@ -42,7 +47,7 @@ class RavelryClient:
         except httpx.HTTPStatusError as err:
             logger.error(
                 f"HTTP error [{err.response.status_code}] on endpoint: {endpoint}",
-                extra={"verbose": False if err.response.status_code == 400 else True}
+                extra={"verbose": err.response.status_code != 400}
             )
             raise HTTPStatusError(
                 endpoint=endpoint,
@@ -62,5 +67,5 @@ class RavelryClient:
             ) from err
 
         except Exception as err:
-            logger.error(f"UNKNOWN ERROR on endpoint: {endpoint}\n{str(err)}")
+            logger.error(f"UNKNOWN ERROR on endpoint: {endpoint}\n{err!s}")
             raise

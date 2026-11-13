@@ -1,16 +1,17 @@
+from datetime import UTC, datetime
+from pathlib import Path
+
 import polars as pl
 
-from datetime import datetime, UTC
-from pathlib import Path
 
 def combine_parquet_files(
     files: list[Path],
-    destination_path: Path = None,
+    destination_path: Path | None = None,
     delete_originals: bool = True,
 ):
     for file in files:
         if not file.is_file(): return # TODO
-        if not file.suffix == ".parquet": return # TODO
+        if file.suffix != ".parquet": return # TODO
     
     if destination_path is None:
         destination_path = files[0].parent / f"combined_{datetime.now(UTC).timestamp()}.parquet"
@@ -32,7 +33,7 @@ def combine_parquet_files(
 
 def combine_parquet_dir(
     source_dir: Path,
-    destination_path: Path = None,
+    destination_path: Path | None = None,
     delete_source: bool = True,
 ):
     if not source_dir.is_dir(): return # TODO
@@ -61,11 +62,11 @@ def combine_parquet_dir(
 
 def de_dup_parquet(
     source_path: Path,
-    destination_path: Path = None,
+    destination_path: Path | None = None,
     de_dup_by: str = "id",
 ):
     if not source_path.is_file(): return # TODO
-    if not source_path.suffix == ".parquet": return # TODO
+    if source_path.suffix != ".parquet": return # TODO
 
     temp_path = source_path.with_suffix(".tmp.parquet")
     output_path = destination_path if destination_path else temp_path

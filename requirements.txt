@@ -50,7 +50,7 @@ pyparsing==3.3.3
 python-dateutil==3.0.0
 python-dotenv==1.2.4
 pyzmq==27.3.0
--e git+ssh://git@github.com/bvcage/cis-5450.git@2be531c25edfd54c15c87c237433677ba53e7536#egg=ravelry_scraper
+-e git+ssh://git@github.com/bvcage/cis-5450.git@8453311cdf93ba9ce25e6295b95c0e23073455fb#egg=ravelry_scraper
 requests==2.34.2
 ruff==0.17.3
 seaborn==0.13.2

@@ -1,11 +1,11 @@
 import logging
 import sys
-
 from contextlib import contextmanager
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
-from ravelry_scraper.constants import LOGS_DIR
 from typing import Literal
+
+from ravelry_scraper.constants import LOGS_DIR
 
 LogMode = Literal["verbose", "essential"]
 
@@ -30,16 +30,14 @@ class RavelryLogger(logging.LoggerAdapter):
 
         self.verbose_info(f"Began at: {start_time.astimezone().strftime(time_format)}")
         self.verbose_info(f"Ended at: {end_time.astimezone().strftime(time_format)}")
-        self.info(f"Elapsed time: {str(end_time - start_time)}")
+        self.info(f"Elapsed time: {end_time - start_time!s}")
 
 class EssentialLogFilter(logging.Filter):
     """Hide DEBUG logs and any logs marked as verbose=True."""
     def filter(self, record: logging.LogRecord) -> bool:
         if record.levelno < logging.INFO:
             return False
-        if getattr(record, "verbose", False):
-            return False
-        return True
+        return not getattr(record, "verbose", False)
 
 class DailyFileHandler(logging.FileHandler):
     def __init__(self, log_dir: Path, encoding: str ="utf-8"):

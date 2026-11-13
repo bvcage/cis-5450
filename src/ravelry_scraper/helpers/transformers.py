@@ -1,14 +1,14 @@
+from datetime import UTC, datetime
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from datetime import datetime, UTC
-from pathlib import Path
-
 from ravelry_scraper.constants import DATA_DIR
+from ravelry_scraper.helpers.jsonl import de_dup_jsonl
+from ravelry_scraper.helpers.parquet import combine_parquet_files, de_dup_parquet
+from ravelry_scraper.helpers.strings import fraction_to_float, to_plural
 
-from .jsonl import de_dup_jsonl
-from .parquet import combine_parquet_files, de_dup_parquet
-from .strings import fraction_to_float, to_plural
 
 def extract_linked_data(series: pd.Series, category: str):
     if isinstance(series.iloc[0], (list, np.ndarray)): series = series.explode()
@@ -50,7 +50,7 @@ def get_ids(row, column, id='id'):
     
     value = row[column]
     if isinstance(value, (list, np.ndarray)):
-        return list(filter(None, map(lambda x: x[id] if id in x else np.nan, value)))
+        return list(filter(None, (x.get(id, np.nan) if isinstance(x, dict) else np.nan for x in value)))
     else:
         return value[id] if isinstance(value, dict) and id in value else np.nan
 
