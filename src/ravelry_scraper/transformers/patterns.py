@@ -6,7 +6,7 @@ from currency_converter import CurrencyConverter
 from pathlib import Path
 
 from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
-from ..helpers.transformers import extract_nested_data, get_count, get_ids, process_int_columns, process_datetime_columns, process_boolean_columns
+from ..helpers.transformers import extract_linked_data, get_count, get_ids, process_int_columns, process_datetime_columns, process_boolean_columns
 from ..logger import get_logger
 
 curr_file = Path(__file__).resolve()
@@ -104,7 +104,7 @@ def process_pattern_chunk(chunk, c):
     extract_cols = [col for col in extract_cols if col in chunk.columns]
     for col in extract_cols:
         logger.info(f"Extracting data from {col}...")
-        extract_nested_data(chunk[col], col)
+        extract_linked_data(chunk[col], col)
         chunk[f"{col}_ids"] = chunk.apply(get_ids, axis=1, column=col)
         chunk = chunk.drop(columns=[col])
 

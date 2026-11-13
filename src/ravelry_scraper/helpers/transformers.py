@@ -8,7 +8,7 @@ from .jsonl import de_dup_jsonl
 from .parquet import combine_parquet_files, de_dup_parquet
 from .strings import fraction_to_float, to_plural
 
-def extract_nested_data(series: pd.Series, category: str):
+def extract_linked_data(series: pd.Series, category: str):
     if isinstance(series.iloc[0], (list, np.ndarray)): series = series.explode()
     series = series.dropna()
     df = series.apply(pd.Series)
@@ -16,17 +16,24 @@ def extract_nested_data(series: pd.Series, category: str):
         for col in ['us','metric']:
             df[col] = df[col].apply(fraction_to_float)
         category = 'needle_sizes'
+    if category == 'pattern_categories':
+        extract_nested_data(df['parent'], col='parent', category=category)
+        df['parent_id'] = df.apply(get_ids, axis=1, column='parent')
+        df = df.drop(columns=['parent'])
     store_extracted(df, Path(f"data/extracted/{to_plural(category)}"), filetype="parquet")
 
-def extract_recursively(row: pd.Series, col: str, category: str):
-    if row is None or pd.isnull(row[col]): return # skip invalid rows
-
-    sub_record = row.get(col, None)
-    while not pd.isnull(sub_record):
-        sub_record[f'{col}_id'] = get_ids(row, col)
-        next_sub_record = sub_record.pop(col, None)
-        store_extracted(pd.DataFrame([sub_record]), Path(f"data/extracted/{to_plural(category)}"), filetype="parquet")
-        sub_record = next_sub_record
+def extract_nested_data(series: pd.Series, col: str, category: str):
+    extracted = []
+    for row in series.dropna().to_numpy():
+        sub_record = row.get(col, None)
+        while not pd.isnull(sub_record):
+            if col in sub_record:
+                sub_record[f'{col}_id'] = get_ids(sub_record, col)
+            next_sub_record = sub_record.pop(col, None)
+            extracted.append(sub_record)
+            sub_record = next_sub_record
+        
+    store_extracted(pd.DataFrame(extracted), Path(f"data/extracted/{to_plural(category)}"), filetype="parquet")
 
 def extract_users(users: pd.Series):
     if isinstance(users.iloc[0], (list, np.ndarray)): users = users.explode()
@@ -37,6 +44,8 @@ def extract_users(users: pd.Series):
     store_extracted(df, Path("data/extracted/users"), filetype="parquet")
 
 def get_ids(row, column, id='id'):
+    if column not in row or row[column] is None: return np.nan
+    
     value = row[column]
     if isinstance(value, (list, np.ndarray)):
         return list(filter(None, map(lambda x: x[id] if id in x else np.nan, value)))

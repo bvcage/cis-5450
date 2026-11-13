@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 
 from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
-from ..helpers.transformers import extract_nested_data, get_count, get_ids, process_boolean_columns, process_datetime_columns, process_int_columns
+from ..helpers.transformers import extract_linked_data, get_count, get_ids, process_boolean_columns, process_datetime_columns, process_int_columns
 from ..logger import get_logger
 
 curr_file = Path(__file__).resolve()
@@ -84,7 +84,7 @@ def process_yarn_chunk(chunk):
     extract_cols = ['min_needle_size', 'max_needle_size', 'yarn_company', 'yarn_fibers', 'yarn_weight']
     extract_cols = [col for col in extract_cols if col in chunk.columns]
     for col in extract_cols:
-        extract_nested_data(chunk[col], col)
+        extract_linked_data(chunk[col], col)
         chunk[f"{col}_ids"] = chunk.apply(get_ids, axis=1, column=col)
         chunk = chunk.drop(columns=[col])
 

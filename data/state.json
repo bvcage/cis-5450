@@ -13,15 +13,5 @@
         "max_successful_id": 260649,
         "max_id": 261043,
         "updated_at": "2026-11-05T16:53:36.750930+00:00"
-    },
-    "packs": {
-        "max_successful_id": 1300,
-        "max_id": 1300,
-        "updated_at": "2026-11-05T18:43:15.558401+00:00"
-    },
-    "projects": {
-        "max_successful_id": 0,
-        "max_id": 198,
-        "updated_at": "2026-11-05T18:44:01.192961+00:00"
     }
 }
