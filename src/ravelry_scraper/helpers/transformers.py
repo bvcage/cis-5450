@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 from .jsonl import de_dup_jsonl
-from .parquet import combine_parquet_dir, de_dup_parquet
+from .parquet import combine_parquet_files, de_dup_parquet
 from .strings import fraction_to_float
 
 def extract_nested_data(series: pd.Series, category: str):
@@ -91,15 +91,21 @@ def _store_extracted_as_jsonl(df, path):
 
 def _store_extracted_as_parquet(df, path):
     path.parent.mkdir(parents=True, exist_ok=True)
+    is_existing = path.is_file()
+
+    file = path.with_suffix('.new.parquet') if is_existing else path
 
     df = df.drop_duplicates(subset=['id'])
     df['extracted_at'] = datetime.now(UTC)
 
     df.to_parquet(
-        path,
+        file,
         engine='pyarrow',
         index=False,
         compression='snappy',
     )
+
+    if is_existing:
+        combine_parquet_files([path, file], path)
 
     de_dup_parquet(path)
