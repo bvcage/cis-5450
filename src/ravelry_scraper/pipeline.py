@@ -40,7 +40,7 @@ def run_pipeline(
     batch_size=1_000,
     from_last_success=True,
 ):
-    if not category in SUPPORTED_PIPELINES: return # todo
+    if not category in SUPPORTED_PIPELINES: return # TODO
 
     logger.info(f"Scraping {to_plural(category)}")
     with logger.log_duration():
@@ -133,7 +133,7 @@ def run_search_pipeline(
     category="projects",
     max_pages=10_000,
 ):
-    if category not in SUPPORTED_SEARCH_PIPELINES: return # todo
+    if category not in SUPPORTED_SEARCH_PIPELINES: return # TODO
 
     with logger.log_duration():
         _run_search_pipeline(

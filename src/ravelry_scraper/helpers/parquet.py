@@ -9,8 +9,8 @@ def combine_parquet_files(
     delete_originals: bool = True,
 ):
     for file in files:
-        if not file.is_file(): return # todo
-        if not file.suffix == ".parquet": return # todo
+        if not file.is_file(): return # TODO
+        if not file.suffix == ".parquet": return # TODO
     
     if destination_path is None:
         destination_path = files[0].parent / f"combined_{datetime.now(UTC).timestamp()}.parquet"
@@ -35,7 +35,7 @@ def combine_parquet_dir(
     destination_path: Path = None,
     delete_source: bool = True,
 ):
-    if not source_dir.is_dir(): return # todo
+    if not source_dir.is_dir(): return # TODO
 
     if destination_path is None:
         destination_path = source_dir.parent / f"{source_dir.name}.parquet"
@@ -64,8 +64,8 @@ def de_dup_parquet(
     destination_path: Path = None,
     de_dup_by: str = "id",
 ):
-    if not source_path.is_file(): return # todo
-    if not source_path.suffix == ".parquet": return # todo
+    if not source_path.is_file(): return # TODO
+    if not source_path.suffix == ".parquet": return # TODO
 
     temp_path = source_path.with_suffix(".tmp.parquet")
     output_path = destination_path if destination_path else temp_path
