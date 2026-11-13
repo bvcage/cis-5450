@@ -1,27 +1,35 @@
+import pandas as pd
+import uuid
+
 from datetime import datetime, UTC
 from pathlib import Path
-import json
 
 from .client import RavelryClient
 from .exceptions import RavelryScraperError, RequestError
 from .helpers.jsonl import append_to_jsonl
+from .helpers.parquet import combine_parquet_dir, de_dup_parquet
 from .logger import get_logger
 from .state import StateManager
+from .stats import StatsManager
+from .transformers.projects import process_projects
 
 MODULE = Path(__file__).stem
-
+logger = get_logger(MODULE)
 
 def initialize_pipeline():
     client = RavelryClient()
     state = StateManager()
-    logger = get_logger(MODULE)
+    stats = StatsManager()
 
     return (
         client,
         state,
-        logger,
+        stats,
     )
 
+def run_projects_pipeline(max_pages = None):
+    run_search_pipeline("projects", max_pages)
+    process_projects()
 
 def run_pipeline(
     category="patterns",
@@ -29,11 +37,26 @@ def run_pipeline(
     batch_size=1_000,
     from_last_success=True,
 ):
-    start_time = datetime.now(UTC)
-
     if not category in ["patterns", "designers", "yarns"]: return # todo
 
-    client, state, logger = initialize_pipeline()
+    with logger.log_duration():
+        _run_pipeline(
+            category,
+            max_count,
+            batch_size,
+            from_last_success,
+        )
+
+def _run_pipeline(
+    category,
+    max_count,
+    batch_size,
+    from_last_success,
+):
+    client, state, stats = initialize_pipeline()
+
+    cat_dir = Path(f"data/raw/{category}")
+    cat_dir.mkdir(parents=True, exist_ok=True)
 
     batch_size = min(max_count, batch_size)
 
@@ -79,7 +102,15 @@ def run_pipeline(
         finally:
             logger.info("Saving batch results & updating checkpoint...")
 
-            if records: append_to_jsonl(records, Path(f"data/raw/{category}.jsonl"))
+            if records:
+                df = pd.DataFrame(records)
+                df.to_parquet(
+                    cat_dir / f"{uuid.uuid4().hex}.parquet",
+                    engine='pyarrow',
+                    index=False,
+                    compression='snappy'
+                )
+
             if errors: append_to_jsonl(errors, Path(f"data/failed/{category}.jsonl"))
 
             state.update_checkpoint(category, {
@@ -87,8 +118,73 @@ def run_pipeline(
                 "max_id": last_id,
             })
 
-
-    end_time = datetime.now(UTC)
+    logger.info("Combining parquet files...")
+    combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
 
     logger.info(f"Scrape complete for {total_count} {category}.")
-    logger.log_duration(start_time, end_time)
+
+def run_search_pipeline(
+    category="projects",
+    max_pages=10_000,
+):
+    if category not in ["projects"]: return # todo
+
+    with logger.log_duration():
+        _run_search_pipeline(
+            category,
+            max_pages,
+        )
+
+def _run_search_pipeline(
+    category,
+    max_pages,
+):
+    client, _, _ = initialize_pipeline()
+
+    cat_dir = Path(f"data/raw/{category}")
+    cat_dir.mkdir(parents=True, exist_ok=True)
+
+    endpoint = f"/{category}/search.json"
+    records = []
+    page_num = 1
+
+    consecutive_error_count = 0
+
+    while page_num <= max_pages and consecutive_error_count < 5:
+        try:
+            data = client.fetch_endpoint(endpoint, params={"page": page_num})
+            first_key = next(iter(data))
+            results = data[first_key]
+            for result in results:
+                records.append(result | { 'scraped_at': datetime.now(UTC).isoformat() })
+
+            if page_num == 1:
+                paginator = data['paginator']
+                if 'last_page' in paginator:
+                    max_pages = min(max_pages, paginator['last_page'])
+            
+            consecutive_error_count = 0
+        except RavelryScraperError as err:
+            consecutive_error_count += 1
+
+            if page_num > paginator['last_page']:
+                logger.info(f"Tried to scrape non-existent page number {page_num}: {paginator}")
+                return
+        finally:
+            page_num += 1
+            if records:
+                df = pd.DataFrame(records)
+                df.to_parquet(
+                    cat_dir / f"{uuid.uuid4().hex}.parquet",
+                    engine='pyarrow',
+                    index=False,
+                    compression='snappy'
+                )
+                records = []
+
+    logger.info("Combining parquet files...")
+    combined_file_path = combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
+    logger.info(f"Deduping {category}...")
+    de_dup_parquet(combined_file_path)
+
+    logger.info(f"Scrape complete for {category}.")
