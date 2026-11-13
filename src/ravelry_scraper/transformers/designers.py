@@ -4,6 +4,8 @@ import uuid
 
 from pathlib import Path
 
+from ravelry_scraper.constants import DATA_DIR
+
 from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
 from ..helpers.transformers import extract_users, get_ids, process_datetime_columns, process_int_columns
 from ..logger import get_logger
@@ -19,9 +21,9 @@ def process_designers():
 def _process_designers():
     logger.info("Processing designers ...")
 
-    raw_path = Path("data/raw/designers.parquet")
+    raw_path = Path(f"{DATA_DIR}/raw/designers.parquet")
     raw_file = pq.ParquetFile(raw_path)
-    processed_dir = Path("data/processed/designers")
+    processed_dir = Path(f"{DATA_DIR}/processed/designers")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []
@@ -37,16 +39,16 @@ def _process_designers():
 
     logger.info(f"Dropping columns from dataset: {drop_cols.tolist()}")
 
-    total_records = 0
+    total_retained = 0
     for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
         chunk = batch.to_pandas()
-        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
+        logger.verbose_info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
         processed_chunk = process_designer_chunk(chunk)
 
-        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
-        total_records += len(processed_chunk)
+        logger.verbose_info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
+        total_retained += len(processed_chunk)
 
         processed_chunk.to_parquet(
             processed_dir / f"{uuid.uuid4().hex}.parquet",
@@ -55,8 +57,8 @@ def _process_designers():
             compression='snappy'
         )
 
-    logger.info(f"Total chunks processed: {idx+1}")
-    logger.info(f"Total records processed: {total_records}")
+    logger.verbose_info(f"Total chunks processed: {idx+1}")
+    logger.info(f"Total records retained: {total_retained}")
 
     combined_file_path = combine_parquet_dir(processed_dir)
     if combined_file_path: de_dup_parquet(combined_file_path)

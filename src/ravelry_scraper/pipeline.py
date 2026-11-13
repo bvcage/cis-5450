@@ -3,8 +3,12 @@ import uuid
 
 from datetime import datetime, UTC
 from pathlib import Path
+from time import sleep
+
+from ravelry_scraper.helpers.strings import to_plural, to_singular
 
 from .client import RavelryClient
+from .constants import DATA_DIR, SEARCH_SORT_OPTIONS,SUPPORTED_PIPELINES, SUPPORTED_SEARCH_PIPELINES
 from .exceptions import RavelryScraperError, RequestError
 from .helpers.jsonl import append_to_jsonl
 from .helpers.parquet import combine_parquet_dir, de_dup_parquet
@@ -37,8 +41,9 @@ def run_pipeline(
     batch_size=1_000,
     from_last_success=True,
 ):
-    if not category in ["patterns", "designers", "yarns"]: return # todo
+    if not category in SUPPORTED_PIPELINES: return # TODO
 
+    logger.info(f"Scraping {to_plural(category)}")
     with logger.log_duration():
         _run_pipeline(
             category,
@@ -55,7 +60,7 @@ def _run_pipeline(
 ):
     client, state, stats = initialize_pipeline()
 
-    cat_dir = Path(f"data/raw/{category}")
+    cat_dir = Path(f"{DATA_DIR}/raw/{category}")
     cat_dir.mkdir(parents=True, exist_ok=True)
 
     batch_size = min(max_count, batch_size)
@@ -76,6 +81,8 @@ def _run_pipeline(
         try:
             for id in id_range:
                 endpoint = f"/{category}/{id}.json"
+                last_id = max(last_id, id)
+                total_count += 1
 
                 try:
                     data = client.fetch_endpoint(endpoint)
@@ -91,16 +98,13 @@ def _run_pipeline(
                     errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
 
                     if consecutive_error_count >= 100:
-                        logger.info(f"Stopping scrape after {consecutive_error_count} consecutive errors.")
-                        return
+                        logger.verbose_info(f"Stopping scrape after {consecutive_error_count} consecutive errors.")
+                        break
                     if isinstance(err, RequestError):
-                        logger.error(f"Stopping scrape after request failure on endpoint: {endpoint}\nLeaving checkpoint at {last_id} for retry.")
-                        return
-
-                total_count += 1
-                last_id = max(last_id, id)
+                        logger.verbose_info(f"Stopping scrape after request failure on endpoint: {endpoint}\nLeaving checkpoint at {last_id} for retry.")
+                        break
         finally:
-            logger.info("Saving batch results & updating checkpoint...")
+            logger.verbose_info(f"Saving {len(records)} {to_singular(category)} results & updating checkpoint")
 
             if records:
                 df = pd.DataFrame(records)
@@ -111,37 +115,54 @@ def _run_pipeline(
                     compression='snappy'
                 )
 
-            if errors: append_to_jsonl(errors, Path(f"data/failed/{category}.jsonl"))
+            if errors: append_to_jsonl(errors, Path(f"{DATA_DIR}/failed/{category}.jsonl"))
 
             state.update_checkpoint(category, {
                 "max_successful_id": last_successful_id,
                 "max_id": last_id,
             })
 
-    logger.info("Combining parquet files...")
-    combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
+    if records:
+        logger.info("Appending files")
+        combine_parquet_dir(cat_dir)
+        logger.info("Deduplicating records")
+        de_dup_parquet(cat_dir.with_suffix(".parquet"))
 
-    logger.info(f"Scrape complete for {total_count} {category}.")
+    logger.info(f"Scrape complete for {total_count} endpoints: {len(records)} new {to_plural(category)} added")
+
+def run_search_pipeline_for_all_sort_orders():
+    for idx, sort_option in enumerate(SEARCH_SORT_OPTIONS):
+        if idx > 0: sleep(60 * 15)
+        run_search_pipeline(sort=sort_option)
+        sleep(60 * 15)
+        run_search_pipeline(sort=f"{sort_option}_") # reversed
 
 def run_search_pipeline(
     category="projects",
     max_pages=10_000,
+    query=None,
+    sort=None,
 ):
-    if category not in ["projects"]: return # todo
+    if category not in SUPPORTED_SEARCH_PIPELINES: return # TODO
 
     with logger.log_duration():
         _run_search_pipeline(
             category,
             max_pages,
+            query,
+            sort,
         )
 
 def _run_search_pipeline(
     category,
     max_pages,
+    query,
+    sort,
 ):
+    logger.info(f"Scraping {to_plural(category)}")
     client, _, _ = initialize_pipeline()
 
-    cat_dir = Path(f"data/raw/{category}")
+    cat_dir = Path(f"{DATA_DIR}/raw/{category}")
     cat_dir.mkdir(parents=True, exist_ok=True)
 
     endpoint = f"/{category}/search.json"
@@ -152,7 +173,7 @@ def _run_search_pipeline(
 
     while page_num <= max_pages and consecutive_error_count < 5:
         try:
-            data = client.fetch_endpoint(endpoint, params={"page": page_num})
+            data = client.fetch_endpoint(endpoint, params={"page": page_num, "query": query, "sort": sort})
             first_key = next(iter(data))
             results = data[first_key]
             for result in results:
@@ -161,6 +182,7 @@ def _run_search_pipeline(
             if page_num == 1:
                 paginator = data['paginator']
                 if 'last_page' in paginator:
+                    logger.info(f"Number of pages: {paginator['last_page']}")
                     max_pages = min(max_pages, paginator['last_page'])
             
             consecutive_error_count = 0
@@ -182,9 +204,9 @@ def _run_search_pipeline(
                 )
                 records = []
 
-    logger.info("Combining parquet files...")
-    combined_file_path = combine_parquet_dir(cat_dir, cat_dir / f"{category}.parquet")
-    logger.info(f"Deduping {category}...")
+    logger.info(f"Appending new {to_plural(category)}")
+    combined_file_path = combine_parquet_dir(cat_dir)
+    logger.info(f"Deduplicating records")
     de_dup_parquet(combined_file_path)
 
     logger.info(f"Scrape complete for {category}.")

@@ -2,13 +2,14 @@ import json
 from datetime import datetime, UTC
 from pathlib import Path
 
+from .constants import DATA_DIR
 from .logger import get_logger
 
 MODULE = Path(__file__).stem
 logger = get_logger(MODULE)
 
 class StateManager:
-    def __init__(self, state_filepath: str = "data/state.json"):
+    def __init__(self, state_filepath: str = f"{DATA_DIR}/state.json"):
         self.path = Path(state_filepath)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.state = self._load_state()

@@ -5,6 +5,8 @@ import uuid
 from currency_converter import CurrencyConverter
 from pathlib import Path
 
+from ravelry_scraper.constants import DATA_DIR
+
 from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
 from ..helpers.transformers import extract_linked_data, get_count, get_ids, process_int_columns, process_datetime_columns, process_boolean_columns
 from ..logger import get_logger
@@ -21,9 +23,9 @@ def process_patterns():
 def _process_patterns():
     logger.info("Processing patterns ...")
 
-    raw_path = Path("data/raw/patterns/patterns.parquet")
+    raw_path = Path(f"{DATA_DIR}/raw/patterns.parquet")
     raw_file = pq.ParquetFile(raw_path)
-    processed_dir = Path("data/processed/patterns")
+    processed_dir = Path(f"{DATA_DIR}/processed/patterns")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []
@@ -45,12 +47,12 @@ def _process_patterns():
     total_records = 0
     for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
         chunk = batch.to_pandas()
-        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
+        logger.verbose_info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
         processed_chunk = process_pattern_chunk(chunk, c)
 
-        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
+        logger.verbose_info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
         total_records += len(processed_chunk)
 
         processed_chunk.to_parquet(

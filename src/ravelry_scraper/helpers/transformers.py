@@ -4,6 +4,8 @@ import pandas as pd
 from datetime import datetime, UTC
 from pathlib import Path
 
+from ravelry_scraper.constants import DATA_DIR
+
 from .jsonl import de_dup_jsonl
 from .parquet import combine_parquet_files, de_dup_parquet
 from .strings import fraction_to_float, to_plural
@@ -20,7 +22,7 @@ def extract_linked_data(series: pd.Series, category: str):
         extract_nested_data(df['parent'], col='parent', category=category)
         df['parent_id'] = df.apply(get_ids, axis=1, column='parent')
         df = df.drop(columns=['parent'])
-    store_extracted(df, Path(f"data/extracted/{to_plural(category)}"), filetype="parquet")
+    store_extracted(df, Path(f"{DATA_DIR}/extracted/{to_plural(category)}"), filetype="parquet")
 
 def extract_nested_data(series: pd.Series, col: str, category: str):
     extracted = []
@@ -33,7 +35,7 @@ def extract_nested_data(series: pd.Series, col: str, category: str):
             extracted.append(sub_record)
             sub_record = next_sub_record
         
-    store_extracted(pd.DataFrame(extracted), Path(f"data/extracted/{to_plural(category)}"), filetype="parquet")
+    store_extracted(pd.DataFrame(extracted), Path(f"{DATA_DIR}/extracted/{to_plural(category)}"), filetype="parquet")
 
 def extract_users(users: pd.Series):
     if isinstance(users.iloc[0], (list, np.ndarray)): users = users.explode()
@@ -41,7 +43,7 @@ def extract_users(users: pd.Series):
     df = df[['id', 'username', 'profile_country_code']]
     df = df.drop_duplicates()
 
-    store_extracted(df, Path("data/extracted/users"), filetype="parquet")
+    store_extracted(df, Path(f"{DATA_DIR}/extracted/users"), filetype="parquet")
 
 def get_ids(row, column, id='id'):
     if column not in row or row[column] is None: return np.nan

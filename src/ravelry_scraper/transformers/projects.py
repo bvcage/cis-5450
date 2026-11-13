@@ -3,6 +3,7 @@ import pyarrow.parquet as pq
 import uuid
 
 from pathlib import Path
+from ravelry_scraper.constants import DATA_DIR
 
 from ..helpers.parquet import combine_parquet_dir, de_dup_parquet
 from ..helpers.transformers import extract_users, process_datetime_columns, process_int_columns
@@ -19,9 +20,9 @@ def process_projects():
 def _process_projects():
     logger.info("Processing projects ...")
 
-    raw_path = Path("data/raw/projects/projects.parquet")
+    raw_path = Path(f"{DATA_DIR}/raw/projects.parquet")
     raw_file = pq.ParquetFile(raw_path)
-    processed_dir = Path("data/processed/projects")
+    processed_dir = Path(f"{DATA_DIR}/processed/projects")
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     na_cols = []
@@ -32,20 +33,23 @@ def _process_projects():
         na_cols = [col for col in cols if chunk[col].isna().sum() > max_num_na]
         break
 
-    unused_cols = ['made_for', 'first_photo', 'name', 'permalink', 'links', 'pattern_name', 'project_status_id', 'gauge_pattern', 'completed_day_set', 'started_day_set', 'size']
-    drop_cols = np.union1d(na_cols, unused_cols)
+    must_keep_cols = ['rating']
+    unused_cols = ['made_for', 'first_photo', 'name', 'permalink', 'links', 'pattern_name', 'project_status_id', 'gauge_pattern', 'completed_day_set', 'started_day_set', 'size', 'tag_names']
 
-    logger.info(f"Dropping columns from dataset: {drop_cols.tolist()}")
+    drop_cols = set(na_cols + unused_cols)
+    drop_cols = [col for col in drop_cols if col not in must_keep_cols]
+
+    logger.info(f"Dropping columns from dataset: {', '.join(drop_cols)}")
 
     total_records = 0
     for idx, batch in enumerate(raw_file.iter_batches(batch_size=10_000)):
         chunk = batch.to_pandas()
-        logger.info(f"Processing chunk {idx+1} with {len(chunk)} rows")
+        logger.verbose_info(f"Processing chunk {idx+1} with {len(chunk)} rows")
 
         chunk = chunk.drop(columns=[col for col in drop_cols if col in chunk.columns])
         processed_chunk = process_project_chunk(chunk)
 
-        logger.info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
+        logger.verbose_info(f"Processed chunk {idx+1} has {len(processed_chunk)} rows")
         total_records += len(processed_chunk)
 
         processed_chunk.to_parquet(
