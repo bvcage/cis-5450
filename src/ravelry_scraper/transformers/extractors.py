@@ -152,18 +152,18 @@ def extract_nested_id(
     df = df.with_columns(expr)
     return df.drop(col) if drop else df
 
-def extract_users(df: pl.LazyFrame, output_path: Path = Path(f"{DATA_DIR}/extracted/users")) -> None:
+def extract_users(df: pl.LazyFrame, column: str = "users", output_path: Path = Path(f"{DATA_DIR}/extracted/users")) -> None:
     output_path.mkdir(parents=True, exist_ok=True)
 
-    col_expr = pl.col("users")
+    col_expr = pl.col(column)
 
-    if isinstance(df.collect_schema()["users"], (pl.List, pl.Array)):
+    if isinstance(df.collect_schema()[column], (pl.List, pl.Array)):
         col_expr = col_expr.explode()
 
     result = (
         df.select(col_expr)
         .drop_nulls()
-        .unnest("users")
+        .unnest(column)
         .select(["id", "username", "profile_country_code"])
         .unique()
     )
