@@ -34,10 +34,10 @@ def extract_linked_data(df: pl.LazyFrame, column: str) -> None:
     df = df.unnest(column)
     df = df.unique()
 
-    if column in ["pattern_needle_sizes", "min_needle_size", "max_needle_size"]:
+    if column in ["pattern_needle_sizes", "min_needle_size", "max_needle_size", "min_hook_size", "max_hook_size"]:
         exprs = [fraction_to_float_expr(pl.col(size), size) for size in ["us", "metric"]]
         df = df.with_columns(exprs)
-        column = "needle_sizes"
+        column = "_".join(column.split('_')[-2:])
 
     if column == 'pattern_categories':
         extract_nested_data(df, category=column, root_col=column, nested_col='parent')
@@ -152,8 +152,8 @@ def extract_nested_id(
     df = df.with_columns(expr)
     return df.drop(column) if drop else df
 
-def extract_users(df: pl.LazyFrame, column: str = "users", output_path: Path = Path(f"{DATA_DIR}/extracted/users")) -> None:
-    output_path.mkdir(parents=True, exist_ok=True)
+def extract_users(df: pl.LazyFrame, column: str = "users", output_path: Path = Path(f"{DATA_DIR}/extracted/users.parquet")) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     col_expr = pl.col(column)
 

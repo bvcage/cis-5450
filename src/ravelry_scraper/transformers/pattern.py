@@ -13,8 +13,10 @@ class PatternTransformer(BaseTransformer):
     must_keep_cols: ClassVar[list[str]] = [
         'currency',
         'difficulty_average',
+        'difficulty_count',
         'price',
         'rating_average',
+        'rating_count',
         'yardage',
         'yardage_max',
     ]

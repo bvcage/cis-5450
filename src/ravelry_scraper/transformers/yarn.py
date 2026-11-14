@@ -7,11 +7,15 @@ from .base import BaseTransformer
 
 class YarnTransformer(BaseTransformer):
     must_keep_cols: ClassVar[list[str]] = [
+        'machine_washable',
         'max_gauge',
+        'max_hook_size',
         'max_needle_size',
         'min_gauge',
+        'min_hook_size',
         'min_needle_size',
         'rating_average',
+        'rating_count',
         'rating_total',
     ]
     unused_cols: ClassVar[list[str]] = [
@@ -28,7 +32,15 @@ class YarnTransformer(BaseTransformer):
     boolean_cols: ClassVar[list[str]] = ['discontinued', 'machine_washable']
     datetime_cols: ClassVar[list[str]] = ["scraped_at"]
     # TODO: Yarn Fibers not extracting correctly?
-    extract_cols: ClassVar[list[str]] = ['min_needle_size', 'max_needle_size', 'yarn_company', 'yarn_fibers', 'yarn_weight']
+    extract_cols: ClassVar[list[str]] = [
+        'max_hook_size',
+        'max_needle_size',
+        'min_hook_size',
+        'min_needle_size',
+        'yarn_company',
+        'yarn_fibers',
+        'yarn_weight',
+    ]
     int_cols: ClassVar[list[str]] = ['rating_total', 'yardage']
 
     @override
@@ -44,7 +56,8 @@ class YarnTransformer(BaseTransformer):
         # if no range, set max equal to min
         df = df.with_columns(
             pl.col("max_gauge").fill_null(pl.col("min_gauge")),
-            pl.col("max_needle_size").fill_null(pl.col("min_needle_size"))
+            pl.col("max_needle_size").fill_null(pl.col("min_needle_size")),
+            pl.col("max_hook_size").fill_null(pl.col("min_hook_size"))
         )
 
         return super().transform(df)

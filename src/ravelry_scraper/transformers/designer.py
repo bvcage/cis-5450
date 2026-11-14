@@ -1,7 +1,6 @@
 from typing import ClassVar, override
 
 import polars as pl
-import polars.selectors as cs
 
 from .base import BaseTransformer
 from .extractors import extract_nested_id, extract_users

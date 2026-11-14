@@ -20,7 +20,7 @@ class BaseTransformer:
 
     # subclass overrides
     de_dup_by: str | list[str] | None = "id"
-    na_max_pct: float = 0.20
+    na_max_pct: float = 0.40
     must_keep_cols: ClassVar[list[str]] = []
     unused_cols: ClassVar[list[str]] = []
 
