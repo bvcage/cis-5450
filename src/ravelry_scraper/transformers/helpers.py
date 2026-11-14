@@ -1,8 +1,10 @@
+import os
 import unicodedata
-import uuid
 from pathlib import Path
 
 import polars as pl
+
+from ravelry_scraper.helpers.parquet import de_dup_parquet
 
 FRACTION_CHARS = "¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞"
 FRACTION_MAP = {ch: unicodedata.numeric(ch) for ch in FRACTION_CHARS}
@@ -33,17 +35,22 @@ def fraction_to_float_expr(expr: pl.Expr, alias_name: str | None = None) -> pl.E
 
     return result.alias(alias_name) if alias_name else result
 
-
-# TODO: Fix handling of non-directory output paths
-# Needs to handle cases where output_path is a file rather than a directory / combine rather than overwrite data
 def store_extracted(df: pl.LazyFrame, output_path: Path, filetype: str = "parquet") -> None:
-    if not output_path.is_dir(): return # TODO
-
-    output_path.mkdir(parents=True, exist_ok=True)
+    output_path = output_path.with_suffix(f".{filetype}")
 
     if filetype == "parquet":
-        df.sink_parquet(output_path / f"{uuid.uuid4().hex}.parquet")
-    elif filetype == "jsonl":
-        df.sink_ndjson(output_path / f"{uuid.uuid4().hex}.jsonl")
+        if output_path.exists():
+            existing_df = pl.scan_parquet(output_path)
+            combined_df = pl.concat([existing_df, df], how="diagonal_relaxed")
+    
+            temp_path = output_path.with_suffix(".tmp.parquet")
+            combined_df.sink_parquet(temp_path, compression='snappy')
+            de_dup_parquet(temp_path)
+            
+            os.replace(temp_path, output_path)
+        else:
+            df.sink_parquet(output_path, compression='snappy')
+    # elif filetype == "jsonl":
+    #     df.sink_ndjson(output_path)
     else:
         raise ValueError(f"Unsupported filetype: {filetype}")
