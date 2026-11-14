@@ -2,7 +2,7 @@ from typing import ClassVar, override
 
 import polars as pl
 
-from .base import BaseTransformer
+from ravelry_scraper.transformers.base import BaseTransformer
 
 
 class YarnTransformer(BaseTransformer):

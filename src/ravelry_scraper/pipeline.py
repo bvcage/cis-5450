@@ -120,7 +120,7 @@ def _run_pipeline(
 
     if records:
         logger.info("Appending files")
-        combine_parquet_dir(cat_dir)
+        combine_parquet_dir(cat_dir) # TODO: delete if required columns present
         logger.info("Deduplicating records")
         de_dup_parquet(cat_dir.with_suffix(".parquet"))
 
@@ -205,7 +205,7 @@ def _run_search_pipeline(
                 records = []
 
     logger.info(f"Appending new {to_plural(category)}")
-    combined_file_path = combine_parquet_dir(cat_dir, delete_source=False)
+    combined_file_path = combine_parquet_dir(cat_dir, delete_source=False) # TODO: delete if required columns present
     logger.info("Deduplicating records")
     de_dup_parquet(combined_file_path)
 

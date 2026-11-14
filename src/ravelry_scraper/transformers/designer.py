@@ -2,8 +2,8 @@ from typing import ClassVar, override
 
 import polars as pl
 
-from .base import BaseTransformer
-from .extractors import extract_nested_id, extract_users
+from ravelry_scraper.helpers.transformers import extract_nested_id, extract_users
+from ravelry_scraper.transformers.base import BaseTransformer
 
 
 class DesignerTransformer(BaseTransformer):

@@ -4,8 +4,7 @@ import polars as pl
 from currency_converter.currency_converter import CurrencyConverter
 
 from ravelry_scraper.helpers.transformers import extract_count, extract_nested_id
-
-from .base import BaseTransformer
+from ravelry_scraper.transformers.base import BaseTransformer
 
 
 # Docs: https://www.ravelry.com/api#Pattern_full_result

@@ -3,8 +3,7 @@ from typing import ClassVar, override
 import polars as pl
 
 from ravelry_scraper.helpers.transformers import extract_nested_id, extract_users
-
-from .base import BaseTransformer
+from ravelry_scraper.transformers.base import BaseTransformer
 
 
 class ProjectTransformer(BaseTransformer):
