@@ -3,11 +3,25 @@ from pathlib import Path
 import polars as pl
 
 from ravelry_scraper.constants import DATA_DIR
-from ravelry_scraper.helpers.strings import to_plural
+from ravelry_scraper.helpers.strings import to_plural, to_singular
 from ravelry_scraper.transformers.helpers import store_extracted
 
 from .helpers import fraction_to_float_expr
 
+
+def extract_count(
+    df: pl.LazyFrame,
+    column: str, 
+    alias: str | None = None,
+    drop: bool = True,
+) -> pl.LazyFrame:
+    df = df.with_columns(
+        pl.col(column)
+        .list.len()
+        .fill_null(0)
+        .alias(alias or f"{column}_count")
+    )
+    return df.drop(column) if drop else df
 
 def extract_linked_data(df: pl.LazyFrame, column: str) -> None:
     col_expr = pl.col(column)
@@ -15,15 +29,14 @@ def extract_linked_data(df: pl.LazyFrame, column: str) -> None:
     if isinstance(df.collect_schema()[column], (pl.List, pl.Array)):
         col_expr = col_expr.explode()
 
-    df = df.select(column)
+    df = df.select(col_expr)
     df = df.drop_nulls()
     df = df.unnest(column)
     df = df.unique()
 
     if column in ["pattern_needle_sizes", "min_needle_size", "max_needle_size"]:
-        field_exprs = [fraction_to_float_expr(pl.field(c), c) for c in ["us", "metric"]]
-        updated_col = pl.col(column).struct.with_fields(field_exprs)
-        df = df.with_columns(updated_col.alias(column))
+        exprs = [fraction_to_float_expr(pl.col(size), size) for size in ["us", "metric"]]
+        df = df.with_columns(exprs)
         column = "needle_sizes"
 
     if column == 'pattern_categories':
@@ -32,7 +45,7 @@ def extract_linked_data(df: pl.LazyFrame, column: str) -> None:
             pl.col("parent")
             .struct.field("id")
             .alias("parent_id")
-            .cast(pl.List(pl.Int64))
+            .cast(pl.Int64)
         ).drop("parent")
 
     store_extracted(df, Path(f"{DATA_DIR}/extracted/{to_plural(column)}"))
@@ -102,6 +115,42 @@ def extract_nested_data(
     result = pl.concat(levels, how="diagonal_relaxed").unique()
 
     store_extracted(result, Path(f"{DATA_DIR}/extracted/{to_plural(category)}"))
+
+def extract_nested_id(
+    df: pl.LazyFrame,
+    col: str,
+    field: str = "id",
+    alias: str | None = None,
+    drop: bool = True,
+) -> pl.LazyFrame:
+    schema = df.collect_schema()
+    if col not in schema:
+        return df
+
+    col_dtype = schema[col]
+    singular = to_singular(col)
+
+    if isinstance(col_dtype, (pl.List, pl.Array)):
+        target_name = alias or f"{singular}_ids"
+        expr = (
+            pl.col(col)
+            .list.eval(pl.element().struct.field(field))
+            .cast(pl.List(pl.Int64), strict=False)
+            .alias(target_name)
+        )
+    elif isinstance(col_dtype, pl.Struct):
+        target_name = alias or f"{singular}_id"
+        expr = (
+            pl.col(col)
+            .struct.field(field)
+            .cast(pl.Int64, strict=False)
+            .alias(target_name)
+        )
+    else:
+        return df
+
+    df = df.with_columns(expr)
+    return df.drop(col) if drop else df
 
 def extract_users(df: pl.LazyFrame, output_path: Path = Path(f"{DATA_DIR}/extracted/users")) -> None:
     output_path.mkdir(parents=True, exist_ok=True)

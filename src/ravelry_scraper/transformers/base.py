@@ -31,10 +31,14 @@ class BaseTransformer:
     extract_cols: ClassVar[list[str]] = []
     int_cols: ClassVar[list[str]] = []
 
-    def __init__(self, source_path: Path, output_path: Path):
+    def __init__(self, source_path: Path | str, output_path: Path | str):
+        source_path = Path(source_path).resolve()
+        output_path = Path(output_path).resolve()
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        self.source_path = source_path.resolve()
-        self.output_path = output_path.resolve()
+
+        self.source_path = source_path
+        self.output_path = output_path
 
     def de_dup(self, df: pl.LazyFrame) -> pl.LazyFrame:
         if not self.de_dup_by:
