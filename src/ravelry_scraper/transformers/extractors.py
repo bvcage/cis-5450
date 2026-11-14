@@ -118,22 +118,22 @@ def extract_nested_data(
 
 def extract_nested_id(
     df: pl.LazyFrame,
-    col: str,
+    column: str,
     field: str = "id",
     alias: str | None = None,
     drop: bool = True,
 ) -> pl.LazyFrame:
     schema = df.collect_schema()
-    if col not in schema:
+    if column not in schema:
         return df
 
-    col_dtype = schema[col]
-    singular = to_singular(col)
+    col_dtype = schema[column]
+    singular = to_singular(column)
 
     if isinstance(col_dtype, (pl.List, pl.Array)):
         target_name = alias or f"{singular}_ids"
         expr = (
-            pl.col(col)
+            pl.col(column)
             .list.eval(pl.element().struct.field(field))
             .cast(pl.List(pl.Int64), strict=False)
             .alias(target_name)
@@ -141,7 +141,7 @@ def extract_nested_id(
     elif isinstance(col_dtype, pl.Struct):
         target_name = alias or f"{singular}_id"
         expr = (
-            pl.col(col)
+            pl.col(column)
             .struct.field(field)
             .cast(pl.Int64, strict=False)
             .alias(target_name)
@@ -150,7 +150,7 @@ def extract_nested_id(
         return df
 
     df = df.with_columns(expr)
-    return df.drop(col) if drop else df
+    return df.drop(column) if drop else df
 
 def extract_users(df: pl.LazyFrame, column: str = "users", output_path: Path = Path(f"{DATA_DIR}/extracted/users")) -> None:
     output_path.mkdir(parents=True, exist_ok=True)

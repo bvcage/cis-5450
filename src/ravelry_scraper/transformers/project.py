@@ -34,7 +34,7 @@ class ProjectTransformer(BaseTransformer):
 
     @override
     def transform(self, df: pl.LazyFrame) -> pl.LazyFrame:
-        extract_users(df)
+        extract_users(df, column="user")
         df = extract_nested_id(df, column="user")
 
         return super().transform(df)

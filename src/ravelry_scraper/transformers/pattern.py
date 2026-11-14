@@ -71,10 +71,10 @@ class PatternTransformer(BaseTransformer):
         df = convert_currencies(df)
 
         # extract yarn id from packs (special case)
-        df = extract_nested_id(df, col="packs", field="yarn_id", alias="yarn_ids")
+        df = extract_nested_id(df, column="packs", field="yarn_id", alias="yarn_ids")
 
         # extract designer id from pattern_author
-        df = extract_nested_id(df, col="pattern_author", field="id", alias="designer_id")
+        df = extract_nested_id(df, column="pattern_author", field="id", alias="designer_id")
 
         return super().transform(df)
 

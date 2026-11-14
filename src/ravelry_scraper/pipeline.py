@@ -18,7 +18,6 @@ from ravelry_scraper.helpers.parquet import combine_parquet_dir, de_dup_parquet
 from ravelry_scraper.helpers.strings import to_plural, to_singular
 from ravelry_scraper.logger import get_logger
 from ravelry_scraper.state import StateManager
-from ravelry_scraper.transformers.projects import process_projects
 
 MODULE = Path(__file__).stem
 logger = get_logger(MODULE)
@@ -31,10 +30,6 @@ def initialize_pipeline():
         client,
         state,
     )
-
-def run_projects_pipeline(max_pages = None):
-    run_search_pipeline("projects", max_pages)
-    process_projects()
 
 def run_pipeline(
     category="patterns",
@@ -131,12 +126,12 @@ def _run_pipeline(
 
     logger.info(f"Scrape complete for {total_count} endpoints: {len(records)} new {to_plural(category)} added")
 
-def run_search_pipeline_for_all_sort_orders():
+def run_search_pipeline_for_all_sort_orders(category="projects"):
     for idx, sort_option in enumerate(SEARCH_SORT_OPTIONS):
         if idx > 0: sleep(60 * 15)
-        run_search_pipeline(sort=sort_option)
+        run_search_pipeline(category=category, sort=sort_option)
         sleep(60 * 15)
-        run_search_pipeline(sort=f"{sort_option}_") # reversed
+        run_search_pipeline(category=category, sort=f"{sort_option}_") # reversed
 
 def run_search_pipeline(
     category="projects",
@@ -161,7 +156,7 @@ def _run_search_pipeline(
     sort,
 ):
     logger.info(f"Scraping {to_plural(category)}")
-    client, _, _ = initialize_pipeline()
+    client, _ = initialize_pipeline()
 
     cat_dir = Path(f"{DATA_DIR}/raw/{category}")
     cat_dir.mkdir(parents=True, exist_ok=True)
@@ -173,8 +168,12 @@ def _run_search_pipeline(
     consecutive_error_count = 0
 
     while page_num <= max_pages and consecutive_error_count < 5:
+        params = { "page": page_num }
+        if query: params["query"] = query
+        if sort: params["sort"] = sort
+
         try:
-            data = client.fetch_endpoint(endpoint, params={"page": page_num, "query": query, "sort": sort})
+            data = client.fetch_endpoint(endpoint, params=params)
             first_key = next(iter(data))
             results = data[first_key]
             for result in results:
@@ -206,7 +205,7 @@ def _run_search_pipeline(
                 records = []
 
     logger.info(f"Appending new {to_plural(category)}")
-    combined_file_path = combine_parquet_dir(cat_dir)
+    combined_file_path = combine_parquet_dir(cat_dir, delete_source=False)
     logger.info("Deduplicating records")
     de_dup_parquet(combined_file_path)
 
