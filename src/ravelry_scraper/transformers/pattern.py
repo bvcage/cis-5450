@@ -3,7 +3,7 @@ from typing import ClassVar, override
 import polars as pl
 from currency_converter.currency_converter import CurrencyConverter
 
-from ravelry_scraper.transformers.helpers import extract_count, extract_nested_id
+from ravelry_scraper.helpers.transformers import extract_count, extract_nested_id
 
 from .base import BaseTransformer
 
