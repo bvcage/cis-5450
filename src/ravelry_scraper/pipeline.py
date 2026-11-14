@@ -135,28 +135,33 @@ def run_search_pipeline_for_all_sort_orders(category="projects"):
 
 def run_search_pipeline(
     category="projects",
-    max_pages=10_000,
+    max_pages=5_000,
+    sort="updated",
     query=None,
-    sort=None,
 ):
-    if category not in SUPPORTED_SEARCH_PIPELINES: return # TODO
+    if category not in SUPPORTED_SEARCH_PIPELINES:
+        logger.error(f"Search pipeline unsupported category: {category}")
+        return
+    if sort is not None and sort not in SEARCH_SORT_OPTIONS:
+        logger.error(f"Search pipeline unsupported sort option: {sort}")
+        return
 
     with logger.log_duration():
         _run_search_pipeline(
             category,
             max_pages,
-            query,
             sort,
+            query,
         )
 
 def _run_search_pipeline(
     category,
     max_pages,
-    query,
     sort,
+    query,
 ):
     logger.info(f"Scraping {to_plural(category)}")
-    client, _ = initialize_pipeline()
+    client, state = initialize_pipeline()
 
     cat_dir = Path(f"{DATA_DIR}/raw/{category}")
     cat_dir.mkdir(parents=True, exist_ok=True)
@@ -203,6 +208,15 @@ def _run_search_pipeline(
                     compression='snappy'
                 )
                 records = []
+
+    state.update_checkpoint(
+        category,
+        {
+            f"sort:{sort}": {
+                f"query:{query}": datetime.now(UTC).isoformat()
+            },
+        }
+    )
 
     logger.info(f"Appending new {to_plural(category)}")
     combined_file_path = combine_parquet_dir(cat_dir, delete_source=False) # TODO: delete if required columns present

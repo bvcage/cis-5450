@@ -27,6 +27,14 @@ class StateManager:
     def get_cursor(self, category: str, primary_key: str = "max_id"):
         return self.state.get(category, {}).get(primary_key, 0)
 
+    def get_cursor_date(self, category: str, **kwargs):
+        result = self.state.get(category, {})
+
+        for key, val in kwargs.items():
+            result = result.get(f"{key}:{val}", {})
+
+        return result if isinstance(result, datetime) else None
+
     def update_checkpoint(self, category: str, state_changes: dict, replace=False):
         if replace:
             self.state[category] = state_changes | { "updated_at": datetime.now(UTC).isoformat() }
