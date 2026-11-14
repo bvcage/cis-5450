@@ -11,6 +11,7 @@ from ravelry_scraper.constants import (
     SEARCH_SORT_OPTIONS,
     SUPPORTED_PIPELINES,
     SUPPORTED_SEARCH_PIPELINES,
+    get_const,
 )
 from ravelry_scraper.exceptions import RavelryScraperError, RequestError
 from ravelry_scraper.helpers.jsonl import append_to_jsonl
@@ -133,6 +134,12 @@ def run_search_pipeline_for_all_sort_orders(category="projects"):
         sleep(60 * 15)
         run_search_pipeline(category=category, sort=f"{sort_option}_") # reversed
 
+def run_search_pipeline_for_all_queries(category="projects"):
+    query_options = get_const(f"{category.upper()}_QUERY_OPTIONS") or get_const(f"{to_singular(category).upper()}_QUERY_OPTIONS")
+    for idx, query in enumerate(query_options):
+        if idx > 0: sleep(60 * 10)
+        run_search_pipeline(category=category, query=query)
+        
 def run_search_pipeline(
     category="projects",
     max_pages=5_000,
