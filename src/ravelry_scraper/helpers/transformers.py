@@ -1,122 +1,183 @@
-from datetime import UTC, datetime
+import os
+import unicodedata
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
+import polars as pl
 
 from ravelry_scraper.constants import DATA_DIR
-from ravelry_scraper.helpers.jsonl import de_dup_jsonl
-from ravelry_scraper.helpers.parquet import combine_parquet_files, de_dup_parquet
-from ravelry_scraper.helpers.strings import fraction_to_float, to_plural
+from ravelry_scraper.helpers.parquet import de_dup_parquet
+from ravelry_scraper.helpers.strings import to_plural, to_singular
+
+FRACTION_CHARS = "¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞"
+FRACTION_MAP = {ch: unicodedata.numeric(ch) for ch in FRACTION_CHARS}
 
 
-def extract_linked_data(series: pd.Series, category: str):
-    if isinstance(series.iloc[0], (list, np.ndarray)): series = series.explode()
-    series = series.dropna()
-    df = series.apply(pd.Series)
-    if category in ['pattern_needle_sizes', 'min_needle_size', 'max_needle_size']:
-        for col in ['us','metric']:
-            df[col] = df[col].apply(fraction_to_float)
-        category = 'needle_sizes'
-    if category == 'pattern_categories':
-        extract_nested_data(df['parent'], col='parent', category=category)
-        df['parent_id'] = df.apply(get_ids, axis=1, column='parent')
-        df = df.drop(columns=['parent'])
-    store_extracted(df, Path(f"{DATA_DIR}/extracted/{to_plural(category)}"), filetype="parquet")
+def extract_count(
+    df: pl.LazyFrame,
+    column: str, 
+    alias: str | None = None,
+    drop: bool = True,
+) -> pl.LazyFrame:
+    df = df.with_columns(
+        pl.col(column)
+        .list.len()
+        .fill_null(0)
+        .alias(alias or f"{column}_count")
+    )
+    return df.drop(column) if drop else df
 
-def extract_nested_data(series: pd.Series, col: str, category: str):
-    extracted = []
-    for row in series.dropna().to_numpy():
-        sub_record = row.get(col, None)
-        while not pd.isnull(sub_record):
-            if col in sub_record:
-                sub_record[f'{col}_id'] = get_ids(sub_record, col)
-            next_sub_record = sub_record.pop(col, None)
-            extracted.append(sub_record)
-            sub_record = next_sub_record
-        
-    store_extracted(pd.DataFrame(extracted), Path(f"{DATA_DIR}/extracted/{to_plural(category)}"), filetype="parquet")
+def extract_linked_data(df: pl.LazyFrame, column: str) -> None:
+    col_expr = pl.col(column)
 
-def extract_users(users: pd.Series):
-    if isinstance(users.iloc[0], (list, np.ndarray)): users = users.explode()
-    df = users.dropna().apply(pd.Series)
-    df = df[['id', 'username', 'profile_country_code']]
-    df = df.drop_duplicates()
+    if isinstance(df.collect_schema()[column], (pl.List, pl.Array)):
+        col_expr = col_expr.explode()
 
-    store_extracted(df, Path(f"{DATA_DIR}/extracted/users"), filetype="parquet")
+    df = df.select(col_expr)
+    df = df.drop_nulls()
+    df = df.unnest(column)
+    df = df.unique()
 
-def get_ids(row, column, id='id'):
-    if column not in row or row[column] is None: return np.nan
-    
-    value = row[column]
-    if isinstance(value, (list, np.ndarray)):
-        return list(filter(None, (x.get(id, np.nan) if isinstance(x, dict) else np.nan for x in value)))
+    if column in ["pattern_needle_sizes", "min_needle_size", "max_needle_size", "min_hook_size", "max_hook_size"]:
+        exprs = [fraction_to_float_expr(pl.col(size), size) for size in ["us", "metric"]]
+        df = df.with_columns(exprs)
+        column = "_".join(column.split('_')[-2:])
+
+    if column == 'pattern_categories':
+        extract_nested_data(df, root_col=column, nested_col='parent')
+        df = extract_nested_id(df, column="parent", alias="parent_id")
+
+    store_extracted(df, Path(f"{DATA_DIR}/extracted/{to_plural(column)}"))
+
+def extract_nested_data(
+    df: pl.LazyFrame,
+    root_col: str,
+    nested_col: str,
+) -> None:
+    """
+    Flattens a self-referential Struct column (e.g., root_col -> nested_col -> nested_col)
+    into a single deduplicated LazyFrame with `{nested_col}_id` populated at each level.
+    """
+    extracted: list[pl.LazyFrame] = []
+    columns = df.collect_schema().names()
+
+    while nested_col in columns:
+        extracted.append(
+            df.with_columns(
+                pl.col(nested_col).struct.field("id").alias(f"{nested_col}_id")
+            ).drop(nested_col)
+        )
+
+        col_expr = pl.col(nested_col)
+        if isinstance(df.collect_schema()[nested_col], (pl.List, pl.Array)):
+            col_expr = col_expr.explode()
+
+        df = (
+            df.select(col_expr) 
+            .drop_nulls()
+            .unnest(nested_col)
+            .unique()
+        )
+        columns = df.collect_schema().names()
+
+    result = pl.concat(extracted, how="diagonal_relaxed").unique()
+    store_extracted(result, Path(f"{DATA_DIR}/extracted/{to_plural(root_col)}"))
+
+def extract_nested_id(
+    df: pl.LazyFrame,
+    column: str,
+    field: str = "id",
+    alias: str | None = None,
+    drop: bool = True,
+) -> pl.LazyFrame:
+    schema = df.collect_schema()
+    if column not in schema:
+        return df
+
+    col_dtype = schema[column]
+    singular = to_singular(column)
+
+    if isinstance(col_dtype, (pl.List, pl.Array)):
+        target_name = alias or f"{singular}_ids"
+        expr = (
+            pl.col(column)
+            .list.eval(pl.element().struct.field(field))
+            .cast(pl.List(pl.Int64), strict=False)
+            .alias(target_name)
+        )
+    elif isinstance(col_dtype, pl.Struct):
+        target_name = alias or f"{singular}_id"
+        expr = (
+            pl.col(column)
+            .struct.field(field)
+            .cast(pl.Int64, strict=False)
+            .alias(target_name)
+        )
     else:
-        return value[id] if isinstance(value, dict) and id in value else np.nan
+        return df
 
-def get_count(row, column):
-    items = row[column]
-    return len(items) if isinstance(items, (list, np.ndarray)) else 0
+    df = df.with_columns(expr)
+    return df.drop(column) if drop else df
 
-def process_boolean_columns(chunk, bool_cols):
-    bool_cols = [col for col in bool_cols if col in chunk.columns]
-    chunk = chunk.dropna(subset=bool_cols)
-    for col in bool_cols:
-        chunk[col] = chunk[col].astype(int)
-    return chunk
+def extract_users(df: pl.LazyFrame, column: str = "users", output_path: Path = Path(f"{DATA_DIR}/extracted/users.parquet")) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    col_expr = pl.col(column)
+
+    if isinstance(df.collect_schema()[column], (pl.List, pl.Array)):
+        col_expr = col_expr.explode()
+
+    result = (
+        df.select(col_expr)
+        .drop_nulls()
+        .unnest(column)
+        .select(["id", "username", "profile_country_code"])
+        .unique()
+    )
+
+    store_extracted(result, output_path)
+
+# TODO: Review
+def fraction_to_float_expr(expr: pl.Expr, alias_name: str | None = None) -> pl.Expr:
+    s = expr.cast(pl.String)
+
+    # Group 1: whole/decimal | Group 2: Unicode fraction | Groups 3 & 4: ASCII "num/den"
+    pattern = rf"^\s*(\d+(?:\.\d+)?)?\s*(?:([{FRACTION_CHARS}])|(\d+)\s*/\s*(\d+))?\s*$"
+
+    whole = s.str.extract(pattern, 1).cast(pl.Float64, strict=False)
+    unicode_val = s.str.extract(pattern, 2).replace_strict(
+        FRACTION_MAP, default=None, return_dtype=pl.Float64
+    )
+    num = s.str.extract(pattern, 3).cast(pl.Float64, strict=False)
+    den = s.str.extract(pattern, 4).cast(pl.Float64, strict=False)
+
+    slash_val = pl.when(den != 0).then(num / den).otherwise(None)
+    frac_val = pl.coalesce([unicode_val, slash_val])
+
+    # Only return a float if at least a whole number OR a fraction was matched
+    result = (
+        pl.when(whole.is_not_null() | frac_val.is_not_null())
+        .then(whole.fill_null(0.0) + frac_val.fill_null(0.0))
+        .otherwise(None)
+    )
+
+    return result.alias(alias_name) if alias_name else result
+
+def store_extracted(df: pl.LazyFrame, output_path: Path, filetype: str = "parquet") -> None:
+    output_path = output_path.with_suffix(f".{filetype}")
+
+    if filetype == "parquet":
+        if output_path.exists():
+            existing_df = pl.scan_parquet(output_path)
+            combined_df = pl.concat([existing_df, df], how="diagonal_relaxed")
     
-def process_int_columns(chunk, int_cols):
-    int_cols = [col for col in int_cols if col in chunk.columns]
-    chunk = chunk.dropna(subset=int_cols)
-    for col in int_cols:
-        chunk[col] = chunk[col].astype(int)
-    return chunk
-
-def process_datetime_columns(chunk, datetime_cols):
-    datetime_cols = [col for col in datetime_cols if col in chunk.columns]
-    for col in datetime_cols:
-        chunk[col] = pd.to_datetime(chunk[col], utc=True)
-    return chunk
-
-def store_extracted(df, path, filetype="jsonl"):
-    if filetype == "jsonl":
-        _store_extracted_as_jsonl(df, path.with_suffix('.jsonl'))
-    elif filetype == "parquet":
-        _store_extracted_as_parquet(df, path.with_suffix('.parquet'))
-
-def _store_extracted_as_jsonl(df, path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    df = df.drop_duplicates(subset=['id'])
-    df['extracted_at'] = datetime.now(UTC)
-
-    df.to_json(
-        path,
-        orient='records',
-        lines=True,
-        mode='a',
-        date_format='iso',
-    )
-
-    de_dup_jsonl(path)
-
-def _store_extracted_as_parquet(df, path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    is_existing = path.is_file()
-
-    file = path.with_suffix('.new.parquet') if is_existing else path
-
-    df = df.drop_duplicates(subset=['id'])
-    df['extracted_at'] = datetime.now(UTC)
-
-    df.to_parquet(
-        file,
-        engine='pyarrow',
-        index=False,
-        compression='snappy',
-    )
-
-    if is_existing:
-        combine_parquet_files([path, file], path)
-
-    de_dup_parquet(path)
+            temp_path = output_path.with_suffix(".tmp.parquet")
+            combined_df.sink_parquet(temp_path, compression='snappy')
+            de_dup_parquet(temp_path)
+            
+            os.replace(temp_path, output_path)
+        else:
+            df.sink_parquet(output_path, compression='snappy')
+    # elif filetype == "jsonl":
+    #     df.sink_ndjson(output_path)
+    else:
+        raise ValueError(f"Unsupported filetype: {filetype}")
