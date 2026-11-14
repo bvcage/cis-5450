@@ -7,7 +7,7 @@ import polars.selectors as cs
 
 from ravelry_scraper.helpers.strings import to_singular
 from ravelry_scraper.logger import get_logger
-from ravelry_scraper.transformers.extractors import extract_linked_data
+from ravelry_scraper.transformers.helpers import extract_linked_data
 
 curr_file = Path(__file__).resolve()
 MODULE = f"{curr_file.parent.name}/{curr_file.stem}"
