@@ -40,20 +40,13 @@ def extract_linked_data(df: pl.LazyFrame, column: str) -> None:
         column = "_".join(column.split('_')[-2:])
 
     if column == 'pattern_categories':
-        extract_nested_data(df, category=column, root_col=column, nested_col='parent')
-        df = df.with_columns(
-            pl.col("parent")
-            .struct.field("id")
-            .alias("parent_id")
-            .cast(pl.Int64)
-        ).drop("parent")
+        extract_nested_data(df, root_col=column, nested_col='parent')
+        df = extract_nested_id(df, column="parent", alias="parent_id")
 
     store_extracted(df, Path(f"{DATA_DIR}/extracted/{to_plural(column)}"))
 
-# TODO: Review
 def extract_nested_data(
     df: pl.LazyFrame,
-    category: str,
     root_col: str,
     nested_col: str,
 ) -> None:
@@ -61,60 +54,30 @@ def extract_nested_data(
     Flattens a self-referential Struct column (e.g., root_col -> nested_col -> nested_col)
     into a single deduplicated LazyFrame with `{nested_col}_id` populated at each level.
     """
-    schema = df.collect_schema()
-    if root_col not in schema:
-        return
+    extracted: list[pl.LazyFrame] = []
+    columns = df.collect_schema().names()
 
-    current_expr = pl.col(root_col)
-    current_dtype = schema[root_col]
+    while nested_col in columns:
+        extracted.append(
+            df.with_columns(
+                pl.col(nested_col).struct.field("id").alias(f"{nested_col}_id")
+            ).drop(nested_col)
+        )
 
-    # Explode if the root column is a List[Struct] (e.g., pattern_categories)
-    if isinstance(current_dtype, (pl.List, pl.Array)):
-        df = df.explode(root_col)
-        current_dtype = current_dtype.inner
+        col_expr = pl.col(nested_col)
+        if isinstance(df.collect_schema()[nested_col], (pl.List, pl.Array)):
+            col_expr = col_expr.explode()
 
-    levels: list[pl.LazyFrame] = []
+        df = (
+            df.select(col_expr) 
+            .drop_nulls()
+            .unnest(nested_col)
+            .unique()
+        )
+        columns = df.collect_schema().names()
 
-    # Walk down each nested struct level until `nested_col` no longer exists in the schema
-    while isinstance(current_dtype, pl.Struct):
-        fields = {f.name: f.dtype for f in current_dtype.fields}
-        has_child = nested_col in fields and isinstance(fields[nested_col], pl.Struct)
-
-        # Unnest the current struct level into top-level columns
-        level_df = df.select(current_expr.alias("_node")).drop_nulls().unnest("_node")
-
-        if has_child:
-            child_fields = {f.name for f in fields[nested_col].fields}
-            if "id" in child_fields:
-                level_df = level_df.with_columns(
-                    pl.col(nested_col).struct.field("id").alias(f"{nested_col}_id")
-                )
-            else:
-                level_df = level_df.with_columns(
-                    pl.lit(None, dtype=pl.Int64).alias(f"{nested_col}_id")
-                )
-            # Drop the nested child struct from this flattened record (matches .pop(col, None))
-            level_df = level_df.drop(nested_col)
-        else:
-            level_df = level_df.with_columns(
-                pl.lit(None, dtype=pl.Int64).alias(f"{nested_col}_id")
-            )
-
-        levels.append(level_df)
-
-        # Advance expression and dtype to the next deeper level
-        if has_child:
-            current_expr = current_expr.struct.field(nested_col)
-            current_dtype = fields[nested_col]
-        else:
-            break
-
-    if not levels:
-        return
-
-    result = pl.concat(levels, how="diagonal_relaxed").unique()
-
-    store_extracted(result, Path(f"{DATA_DIR}/extracted/{to_plural(category)}"))
+    result = pl.concat(extracted, how="diagonal_relaxed").unique()
+    store_extracted(result, Path(f"{DATA_DIR}/extracted/{to_plural(root_col)}"))
 
 def extract_nested_id(
     df: pl.LazyFrame,
