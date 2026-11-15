@@ -16,7 +16,11 @@ from ravelry_scraper.constants import (
 from ravelry_scraper.exceptions import RavelryScraperError, RequestError
 from ravelry_scraper.helpers.jsonl import append_to_jsonl
 from ravelry_scraper.helpers.parquet import combine_parquet_dir, de_dup_parquet
-from ravelry_scraper.helpers.strings import to_plural, to_singular
+from ravelry_scraper.helpers.strings import (
+    parse_ravelry_datetime,
+    to_plural,
+    to_singular,
+)
 from ravelry_scraper.logger import get_logger
 from ravelry_scraper.state import StateManager
 
@@ -145,6 +149,7 @@ def run_search_pipeline(
     max_pages=5_000,
     sort="updated",
     query=None,
+    full_scan=False,
 ):
     if category not in SUPPORTED_SEARCH_PIPELINES:
         logger.error(f"Search pipeline unsupported category: {category}")
@@ -159,6 +164,7 @@ def run_search_pipeline(
             max_pages,
             sort,
             query,
+            full_scan,
         )
 
 def _run_search_pipeline(
@@ -166,9 +172,12 @@ def _run_search_pipeline(
     max_pages,
     sort,
     query,
+    full_scan,
 ):
     logger.info(f"Scraping {to_plural(category)}")
     client, state = initialize_pipeline()
+
+    last_scraped_at = state.get_cursor_date(category, sort=sort, query=query)
 
     cat_dir = Path(f"{DATA_DIR}/raw/{category}")
     cat_dir.mkdir(parents=True, exist_ok=True)
@@ -196,6 +205,16 @@ def _run_search_pipeline(
                 if 'last_page' in paginator:
                     logger.info(f"Number of pages: {paginator['last_page']}")
                     max_pages = min(max_pages, paginator['last_page'])
+
+            if (
+                not full_scan and
+                last_scraped_at and
+                sort == "updated" and
+                'updated_at' in result and
+                parse_ravelry_datetime(result['updated_at']) <= last_scraped_at
+            ):
+                logger.info(f"Reached previously scraped record at page {page_num}. Stopping.")
+                break
             
             consecutive_error_count = 0
         except RavelryScraperError:
@@ -203,7 +222,7 @@ def _run_search_pipeline(
 
             if page_num > paginator['last_page']:
                 logger.info(f"Tried to scrape non-existent page number {page_num}: {paginator}")
-                return
+                break
         finally:
             page_num += 1
             if records:

@@ -34,7 +34,10 @@ class StateManager:
         for key, val in kwargs.items():
             result = result.get(f"{key}:{val}", {})
 
-        return result if isinstance(result, datetime) else None
+        try:
+            return datetime.fromisoformat(result)
+        except ValueError:
+            return None
 
     def update_checkpoint(self, category: str, state_changes: dict, replace=False):
         if replace:

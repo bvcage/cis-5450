@@ -1,6 +1,6 @@
 import unicodedata
+from datetime import UTC, datetime
 from fractions import Fraction
-from datetime import datetime, UTC
 
 import inflect
 import numpy as np
