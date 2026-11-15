@@ -128,7 +128,7 @@ def _run_pipeline(
             })
 
     if records:
-        logger.info("Appending files")
+        logger.info(f"Appending new {to_plural(category)}")
         combine_parquet_dir(cat_dir) # TODO: delete if required columns present
         logger.info("Deduplicating records")
         de_dup_parquet(cat_dir.with_suffix(".parquet"))
