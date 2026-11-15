@@ -132,17 +132,14 @@ def _run_pipeline(
     logger.info(f"Scrape complete for {total_count} endpoints: {len(records)} new {to_plural(category)} added")
 
 def run_search_pipeline_for_all_sort_orders(category="projects"):
-    for idx, sort_option in enumerate(SEARCH_SORT_OPTIONS):
-        if idx > 0: sleep(60 * 15)
-        run_search_pipeline(category=category, sort=sort_option)
-        sleep(60 * 15)
-        run_search_pipeline(category=category, sort=f"{sort_option}_") # reversed
+    for sort_option in SEARCH_SORT_OPTIONS:
+        run_search_pipeline(category=category, sort=sort_option, sleep=True)
+        run_search_pipeline(category=category, sort=f"{sort_option}_", sleep=True) # reversed
 
 def run_search_pipeline_for_all_queries(category="projects"):
     query_options = get_const(f"{category.upper()}_QUERY_OPTIONS") or get_const(f"{to_singular(category).upper()}_QUERY_OPTIONS")
-    for idx, query in enumerate(query_options):
-        if idx > 0: sleep(60 * 10)
-        run_search_pipeline(category=category, query=query)
+    for query in query_options:
+        run_search_pipeline(category=category, query=query, sleep=True)
         
 def run_search_pipeline(
     category="projects",
@@ -150,6 +147,7 @@ def run_search_pipeline(
     sort="updated",
     query=None,
     full_scan=False,
+    sleep=False,
 ):
     if category not in SUPPORTED_SEARCH_PIPELINES:
         logger.error(f"Search pipeline unsupported category: {category}")
@@ -165,6 +163,7 @@ def run_search_pipeline(
             sort,
             query,
             full_scan,
+            sleep,
         )
 
 def _run_search_pipeline(
@@ -173,6 +172,7 @@ def _run_search_pipeline(
     sort,
     query,
     full_scan,
+    sleep,
 ):
     logger.info(f"Scraping {to_plural(category)}")
     client, state = initialize_pipeline()
@@ -248,5 +248,9 @@ def _run_search_pipeline(
     combined_file_path = combine_parquet_dir(cat_dir, delete_source=False) # TODO: delete if required columns present
     logger.info("Deduplicating records")
     de_dup_parquet(combined_file_path)
+
+    if sleep:
+        sleep_seconds = round(1 + ((page_num-1) * 899/2084))
+        sleep(sleep_seconds)
 
     logger.info(f"Scrape complete for {category}.")
