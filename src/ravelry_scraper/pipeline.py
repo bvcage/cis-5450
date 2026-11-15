@@ -41,7 +41,7 @@ def run_pipeline(
     max_count=10_000,
     batch_size=1_000,
     from_last_success=True,
-    sleep=False,
+    sleep_post_run=False,
 ):
     if not category in SUPPORTED_PIPELINES: return # TODO
 
@@ -52,7 +52,7 @@ def run_pipeline(
             max_count,
             batch_size,
             from_last_success,
-            sleep,
+            sleep_post_run,
         )
 
 def _run_pipeline(
@@ -60,7 +60,7 @@ def _run_pipeline(
     max_count,
     batch_size,
     from_last_success,
-    sleep,
+    sleep_post_run,
 ):
     client, state = initialize_pipeline()
 
@@ -135,19 +135,23 @@ def _run_pipeline(
 
     logger.info(f"Scrape complete for {total_count} endpoints: {total_count} new {to_plural(category)} added")
 
-    if sleep:
+    if sleep_post_run:
         sleep_seconds = round(1 + ((total_count-1) * 299/10_000))
+        if sleep_seconds > 60:
+            logger.info(f"Sleeping for {sleep_seconds/60:.2f} minutes ({sleep_seconds} seconds)")
+        else:
+            logger.info(f"Sleeping for {sleep_seconds} seconds")
         sleep(sleep_seconds)
 
 def run_search_pipeline_for_all_sort_orders(category="projects"):
     for sort_option in SEARCH_SORT_OPTIONS:
-        run_search_pipeline(category=category, sort=sort_option, sleep=True)
-        run_search_pipeline(category=category, sort=f"{sort_option}_", sleep=True) # reversed
+        run_search_pipeline(category=category, sort=sort_option, sleep_post_run=True)
+        run_search_pipeline(category=category, sort=f"{sort_option}_", sleep_post_run=True) # reversed
 
 def run_search_pipeline_for_all_queries(category="projects"):
     query_options = get_const(f"{category.upper()}_QUERY_OPTIONS") or get_const(f"{to_singular(category).upper()}_QUERY_OPTIONS")
     for query in query_options:
-        run_search_pipeline(category=category, query=query, sleep=True)
+        run_search_pipeline(category=category, query=query, sleep_post_run=True)
         
 def run_search_pipeline(
     category="projects",
@@ -155,7 +159,7 @@ def run_search_pipeline(
     sort="updated",
     query=None,
     full_scan=False,
-    sleep=False,
+    sleep_post_run=False,
 ):
     if category not in SUPPORTED_SEARCH_PIPELINES:
         logger.error(f"Search pipeline unsupported category: {category}")
@@ -171,7 +175,7 @@ def run_search_pipeline(
             sort,
             query,
             full_scan,
-            sleep,
+            sleep_post_run,
         )
 
 def _run_search_pipeline(
@@ -180,9 +184,9 @@ def _run_search_pipeline(
     sort,
     query,
     full_scan,
-    sleep,
+    sleep_post_run,
 ):
-    logger.info(f"Scraping {to_plural(category)}")
+    logger.info(f"Scraping {to_plural(category)} - sort:{sort}, query:{query}")
     client, state = initialize_pipeline()
 
     last_scraped_at = state.get_cursor_date(category, sort=sort, query=query)
@@ -257,8 +261,12 @@ def _run_search_pipeline(
     logger.info("Deduplicating records")
     de_dup_parquet(combined_file_path)
 
-    if sleep:
-        sleep_seconds = round(1 + ((page_num-1) * 899/2084))
-        sleep(sleep_seconds)
+    logger.info(f"Scrape complete for {category} - params: sort:{sort}, query:{query}.")
 
-    logger.info(f"Scrape complete for {category}.")
+    if sleep_post_run:
+        sleep_seconds = round(1 + ((page_num-1) * 899/2084))
+        if sleep_seconds > 60:
+            logger.info(f"Sleeping for {sleep_seconds/60:.2f} minutes ({sleep_seconds} seconds)")
+        else:
+            logger.info(f"Sleeping for {sleep_seconds} seconds")
+        sleep(sleep_seconds)
