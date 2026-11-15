@@ -7,6 +7,7 @@ from ravelry_scraper.transformers.base import BaseTransformer
 
 
 class ProjectTransformer(BaseTransformer):
+    entity: str = "project"
     must_keep_cols: ClassVar[list[str]] = ['rating']
     unused_cols: ClassVar[list[str]] = [
         'first_photo',

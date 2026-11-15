@@ -19,6 +19,7 @@ class BaseTransformer:
     output_path: Path
 
     # subclass overrides
+    entity: str = "base"
     de_dup_by: str | list[str] | None = "id"
     na_max_pct: float = 0.40
     must_keep_cols: ClassVar[list[str]] = []
@@ -76,10 +77,11 @@ class BaseTransformer:
         drop_cols = set(na_cols + self.unused_cols)
         drop_cols = [col for col in drop_cols if col in df_columns and col not in self.must_keep_cols]
 
-        logger.info(f"Dropping columns from dataset: {', '.join(drop_cols)}")
+        logger.info(f"Dropping columns from {self.entity} dataset: {', '.join(sorted(drop_cols))}")
         return df.drop(drop_cols)
 
     def process(self) -> None:
+        logger.info(f"Processing {self.entity} dataset")
         with logger.log_duration():
             df = pl.scan_parquet(self.source_path)
             df = self.de_dup(df)

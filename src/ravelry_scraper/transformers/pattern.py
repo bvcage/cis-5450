@@ -9,6 +9,7 @@ from ravelry_scraper.transformers.base import BaseTransformer
 
 # Docs: https://www.ravelry.com/api#Pattern_full_result
 class PatternTransformer(BaseTransformer):
+    entity: str = "pattern"
     must_keep_cols: ClassVar[list[str]] = [
         'currency',
         'difficulty_average',
