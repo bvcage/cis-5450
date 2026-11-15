@@ -41,6 +41,7 @@ def run_pipeline(
     max_count=10_000,
     batch_size=1_000,
     from_last_success=True,
+    sleep=False,
 ):
     if not category in SUPPORTED_PIPELINES: return # TODO
 
@@ -51,6 +52,7 @@ def run_pipeline(
             max_count,
             batch_size,
             from_last_success,
+            sleep,
         )
 
 def _run_pipeline(
@@ -58,6 +60,7 @@ def _run_pipeline(
     max_count,
     batch_size,
     from_last_success,
+    sleep,
 ):
     client, state = initialize_pipeline()
 
@@ -66,10 +69,11 @@ def _run_pipeline(
 
     batch_size = min(max_count, batch_size)
 
+    max_consecutive_error_count = 1_000
     consecutive_error_count = 0
     total_count = 0
 
-    while total_count < max_count and consecutive_error_count < 100:
+    while total_count < max_count and consecutive_error_count < max_consecutive_error_count:
         records = []
         errors = []
 
@@ -98,7 +102,7 @@ def _run_pipeline(
                     consecutive_error_count += 1
                     errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
 
-                    if consecutive_error_count >= 100:
+                    if consecutive_error_count >= max_consecutive_error_count:
                         logger.verbose_info(f"Stopping scrape after {consecutive_error_count} consecutive errors.")
                         break
                     if isinstance(err, RequestError):
@@ -123,13 +127,15 @@ def _run_pipeline(
                 "max_id": last_id,
             })
 
+            if sleep: sleep(60 * 5)
+
     if records:
         logger.info("Appending files")
         combine_parquet_dir(cat_dir) # TODO: delete if required columns present
         logger.info("Deduplicating records")
         de_dup_parquet(cat_dir.with_suffix(".parquet"))
 
-    logger.info(f"Scrape complete for {total_count} endpoints: {len(records)} new {to_plural(category)} added")
+    logger.info(f"Scrape complete for {total_count} endpoints: {total_count} new {to_plural(category)} added")
 
 def run_search_pipeline_for_all_sort_orders(category="projects"):
     for sort_option in SEARCH_SORT_OPTIONS:
