@@ -5,3 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ravelry_scraper"
 version = "0.1.0"
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+]

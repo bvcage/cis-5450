@@ -11,11 +11,16 @@ from ravelry_scraper.constants import (
     SEARCH_SORT_OPTIONS,
     SUPPORTED_PIPELINES,
     SUPPORTED_SEARCH_PIPELINES,
+    get_const,
 )
 from ravelry_scraper.exceptions import RavelryScraperError, RequestError
 from ravelry_scraper.helpers.jsonl import append_to_jsonl
 from ravelry_scraper.helpers.parquet import combine_parquet_dir, de_dup_parquet
-from ravelry_scraper.helpers.strings import to_plural, to_singular
+from ravelry_scraper.helpers.strings import (
+    parse_ravelry_datetime,
+    to_plural,
+    to_singular,
+)
 from ravelry_scraper.logger import get_logger
 from ravelry_scraper.state import StateManager
 
@@ -36,6 +41,7 @@ def run_pipeline(
     max_count=10_000,
     batch_size=1_000,
     from_last_success=True,
+    sleep_post_run=False,
 ):
     if not category in SUPPORTED_PIPELINES: return # TODO
 
@@ -46,6 +52,7 @@ def run_pipeline(
             max_count,
             batch_size,
             from_last_success,
+            sleep_post_run,
         )
 
 def _run_pipeline(
@@ -53,6 +60,7 @@ def _run_pipeline(
     max_count,
     batch_size,
     from_last_success,
+    sleep_post_run,
 ):
     client, state = initialize_pipeline()
 
@@ -61,10 +69,11 @@ def _run_pipeline(
 
     batch_size = min(max_count, batch_size)
 
+    max_consecutive_error_count = 1_000
     consecutive_error_count = 0
     total_count = 0
 
-    while total_count < max_count and consecutive_error_count < 100:
+    while total_count < max_count and consecutive_error_count < max_consecutive_error_count:
         records = []
         errors = []
 
@@ -93,7 +102,7 @@ def _run_pipeline(
                     consecutive_error_count += 1
                     errors.append(vars(err) | { 'timestamp': datetime.now(UTC).isoformat() })
 
-                    if consecutive_error_count >= 100:
+                    if consecutive_error_count >= max_consecutive_error_count:
                         logger.verbose_info(f"Stopping scrape after {consecutive_error_count} consecutive errors.")
                         break
                     if isinstance(err, RequestError):
@@ -119,44 +128,68 @@ def _run_pipeline(
             })
 
     if records:
-        logger.info("Appending files")
-        combine_parquet_dir(cat_dir)
+        logger.info(f"Appending new {to_plural(category)}")
+        combine_parquet_dir(cat_dir) # TODO: delete if required columns present
         logger.info("Deduplicating records")
         de_dup_parquet(cat_dir.with_suffix(".parquet"))
 
-    logger.info(f"Scrape complete for {total_count} endpoints: {len(records)} new {to_plural(category)} added")
+    logger.info(f"Scrape complete for {total_count} endpoints: {total_count} new {to_plural(category)} added")
+
+    if sleep_post_run:
+        sleep_seconds = round(1 + ((total_count-1) * 299/10_000))
+        if sleep_seconds > 60:
+            logger.info(f"Sleeping for {sleep_seconds/60:.2f} minutes ({sleep_seconds} seconds)")
+        else:
+            logger.info(f"Sleeping for {sleep_seconds} seconds")
+        sleep(sleep_seconds)
 
 def run_search_pipeline_for_all_sort_orders(category="projects"):
-    for idx, sort_option in enumerate(SEARCH_SORT_OPTIONS):
-        if idx > 0: sleep(60 * 15)
-        run_search_pipeline(category=category, sort=sort_option)
-        sleep(60 * 15)
-        run_search_pipeline(category=category, sort=f"{sort_option}_") # reversed
+    for sort_option in SEARCH_SORT_OPTIONS:
+        run_search_pipeline(category=category, sort=sort_option, sleep_post_run=True)
+        run_search_pipeline(category=category, sort=f"{sort_option}_", sleep_post_run=True) # reversed
 
+def run_search_pipeline_for_all_queries(category="projects"):
+    query_options = get_const(f"{category.upper()}_QUERY_OPTIONS") or get_const(f"{to_singular(category).upper()}_QUERY_OPTIONS")
+    for query in query_options:
+        run_search_pipeline(category=category, query=query, sleep_post_run=True)
+        
 def run_search_pipeline(
     category="projects",
-    max_pages=10_000,
+    max_pages=5_000,
+    sort="updated",
     query=None,
-    sort=None,
+    full_scan=False,
+    sleep_post_run=False,
 ):
-    if category not in SUPPORTED_SEARCH_PIPELINES: return # TODO
+    if category not in SUPPORTED_SEARCH_PIPELINES:
+        logger.error(f"Search pipeline unsupported category: {category}")
+        return
+    if sort is not None and sort not in SEARCH_SORT_OPTIONS:
+        logger.error(f"Search pipeline unsupported sort option: {sort}")
+        return
 
     with logger.log_duration():
         _run_search_pipeline(
             category,
             max_pages,
-            query,
             sort,
+            query,
+            full_scan,
+            sleep_post_run,
         )
 
 def _run_search_pipeline(
     category,
     max_pages,
-    query,
     sort,
+    query,
+    full_scan,
+    sleep_post_run,
 ):
-    logger.info(f"Scraping {to_plural(category)}")
-    client, _ = initialize_pipeline()
+    logger.info(f"Scraping {to_plural(category)} - sort:{sort}, query:{query}")
+    client, state = initialize_pipeline()
+
+    last_scraped_at = state.get_cursor_date(category, sort=sort, query=query)
 
     cat_dir = Path(f"{DATA_DIR}/raw/{category}")
     cat_dir.mkdir(parents=True, exist_ok=True)
@@ -184,6 +217,16 @@ def _run_search_pipeline(
                 if 'last_page' in paginator:
                     logger.info(f"Number of pages: {paginator['last_page']}")
                     max_pages = min(max_pages, paginator['last_page'])
+
+            if (
+                not full_scan and
+                last_scraped_at and
+                sort == "updated" and
+                'updated_at' in result and
+                parse_ravelry_datetime(result['updated_at']) <= last_scraped_at
+            ):
+                logger.info(f"Reached previously scraped record at page {page_num}. Stopping.")
+                break
             
             consecutive_error_count = 0
         except RavelryScraperError:
@@ -191,7 +234,7 @@ def _run_search_pipeline(
 
             if page_num > paginator['last_page']:
                 logger.info(f"Tried to scrape non-existent page number {page_num}: {paginator}")
-                return
+                break
         finally:
             page_num += 1
             if records:
@@ -204,9 +247,26 @@ def _run_search_pipeline(
                 )
                 records = []
 
+    state.update_checkpoint(
+        category,
+        {
+            f"sort:{sort}": {
+                f"query:{query}": datetime.now(UTC).isoformat()
+            },
+        }
+    )
+
     logger.info(f"Appending new {to_plural(category)}")
-    combined_file_path = combine_parquet_dir(cat_dir, delete_source=False)
+    combined_file_path = combine_parquet_dir(cat_dir, delete_source=False) # TODO: delete if required columns present
     logger.info("Deduplicating records")
     de_dup_parquet(combined_file_path)
 
-    logger.info(f"Scrape complete for {category}.")
+    logger.info(f"Scrape complete for {category} - params: sort:{sort}, query:{query}.")
+
+    if sleep_post_run:
+        sleep_seconds = round(1 + ((page_num-1) * 899/2084))
+        if sleep_seconds > 60:
+            logger.info(f"Sleeping for {sleep_seconds/60:.2f} minutes ({sleep_seconds} seconds)")
+        else:
+            logger.info(f"Sleeping for {sleep_seconds} seconds")
+        sleep(sleep_seconds)

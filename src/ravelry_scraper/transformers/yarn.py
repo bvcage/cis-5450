@@ -2,10 +2,11 @@ from typing import ClassVar, override
 
 import polars as pl
 
-from .base import BaseTransformer
+from ravelry_scraper.transformers.base import BaseTransformer
 
 
 class YarnTransformer(BaseTransformer):
+    entity: str = "yarn"
     must_keep_cols: ClassVar[list[str]] = [
         'machine_washable',
         'max_gauge',

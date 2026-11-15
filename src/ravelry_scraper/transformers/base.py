@@ -19,6 +19,7 @@ class BaseTransformer:
     output_path: Path
 
     # subclass overrides
+    entity: str = "base"
     de_dup_by: str | list[str] | None = "id"
     na_max_pct: float = 0.40
     must_keep_cols: ClassVar[list[str]] = []
@@ -76,10 +77,11 @@ class BaseTransformer:
         drop_cols = set(na_cols + self.unused_cols)
         drop_cols = [col for col in drop_cols if col in df_columns and col not in self.must_keep_cols]
 
-        logger.info(f"Dropping columns from dataset: {', '.join(drop_cols)}")
+        logger.info(f"Dropping columns from {self.entity} dataset: {', '.join(sorted(drop_cols))}")
         return df.drop(drop_cols)
 
     def process(self) -> None:
+        logger.info(f"Processing {self.entity} dataset")
         with logger.log_duration():
             df = pl.scan_parquet(self.source_path)
             df = self.de_dup(df)
@@ -130,6 +132,13 @@ class BaseTransformer:
             cs.by_name(*self.id_cols, require_all=False).cast(pl.Int64, strict=False),
             cs.by_name(count_cols, require_all=False).cast(pl.Int64, strict=False),
             cs.by_name(*self.boolean_cols, require_all=False).cast(pl.Boolean, strict=False),
-            cs.by_name(*self.datetime_cols, require_all=False).str.to_datetime(time_zone="UTC", strict=False),
             cs.by_name(*self.int_cols, require_all=False).cast(pl.Int64, strict=False),  
+            pl.coalesce(
+                cs.by_name(*self.datetime_cols, require_all=False).str.to_datetime(
+                    format="%Y/%m/%d %H:%M:%S %z",
+                    time_zone="UTC",
+                    strict=False
+                ),
+                cs.by_name(*self.datetime_cols, require_all=False).str.to_datetime(time_zone="UTC", strict=False),
+            )
         )
