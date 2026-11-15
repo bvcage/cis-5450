@@ -56,7 +56,34 @@ POPULAR_PROJECT_PATTERNS: Final[list[str]] = [
     'Hipster Hat',
     'Flax worsted',
 ]
-PROJECT_QUERY_OPTIONS: Final[list[str]] = POPULAR_PROJECT_PATTERNS
+POPULAR_PATTERNS_BY_PROJECT_COUNT = [
+    'Sophie Scarf',
+    'Musselburgh',
+    "Hermione's Everyday Socks",
+    'Ranunculus',
+    'Hitchhiker',
+    'Fish Lips Kiss Heel',
+    'Flax worsted',
+    'Baby Surprise Jacket',
+    'Oslo Hat',
+    'Sockhead Slouch Hat',
+    'Barley worsted',
+    'Honey Cowl',
+    "The World's Simplest Mittens",
+    'Step by Step Sweater',
+    'Clapotis',
+    'Monkey Socks',
+    'Vanilla Latte Socks',
+    "Grandmother's Favorite The Original",
+    'Fetching',
+    'Turn A Square',
+    'GAP-tastic Cowl',
+    'Calorimetry',
+    'Sock Recipe: A Good, Plain Sock',
+    'Sophie Hood',
+    'wurm',
+]
+PROJECT_QUERY_OPTIONS: Final[list[str]] = set(POPULAR_PROJECT_PATTERNS + POPULAR_PATTERNS_BY_PROJECT_COUNT)
 
 @overload
 def get_const(const_name: str) -> Any: ...
