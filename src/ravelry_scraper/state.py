@@ -39,7 +39,12 @@ class StateManager:
         except (TypeError, ValueError):
             return None
 
+    def reload(self):
+        self.state = self._load_state()
+
     def update_checkpoint(self, category: str, state_changes: dict, replace=False):
+        self.reload()
+        
         if replace:
             self.state[category] = state_changes | { "updated_at": datetime.now(UTC).isoformat() }
         else:
