@@ -130,6 +130,13 @@ class BaseTransformer:
             cs.by_name(*self.id_cols, require_all=False).cast(pl.Int64, strict=False),
             cs.by_name(count_cols, require_all=False).cast(pl.Int64, strict=False),
             cs.by_name(*self.boolean_cols, require_all=False).cast(pl.Boolean, strict=False),
-            cs.by_name(*self.datetime_cols, require_all=False).str.to_datetime(time_zone="UTC", strict=False),
             cs.by_name(*self.int_cols, require_all=False).cast(pl.Int64, strict=False),  
+            pl.coalesce(
+                cs.by_name(*self.datetime_cols, require_all=False).str.to_datetime(
+                    format="%Y/%m/%d %H:%M:%S %z",
+                    time_zone="UTC",
+                    strict=False
+                ),
+                cs.by_name(*self.datetime_cols, require_all=False).str.to_datetime(time_zone="UTC", strict=False),
+            )
         )
