@@ -36,7 +36,7 @@ class StateManager:
 
         try:
             return datetime.fromisoformat(result)
-        except ValueError:
+        except (TypeError, ValueError):
             return None
 
     def update_checkpoint(self, category: str, state_changes: dict, replace=False):
