@@ -127,8 +127,6 @@ def _run_pipeline(
                 "max_id": last_id,
             })
 
-            if sleep: sleep(60 * 5)
-
     if records:
         logger.info("Appending files")
         combine_parquet_dir(cat_dir) # TODO: delete if required columns present
@@ -136,6 +134,10 @@ def _run_pipeline(
         de_dup_parquet(cat_dir.with_suffix(".parquet"))
 
     logger.info(f"Scrape complete for {total_count} endpoints: {total_count} new {to_plural(category)} added")
+
+    if sleep:
+        sleep_seconds = round(1 + ((total_count-1) * 299/10_000))
+        sleep(sleep_seconds)
 
 def run_search_pipeline_for_all_sort_orders(category="projects"):
     for sort_option in SEARCH_SORT_OPTIONS:
