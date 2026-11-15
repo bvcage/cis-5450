@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -40,9 +41,23 @@ class StateManager:
             self.state[category] = state_changes | { "updated_at": datetime.now(UTC).isoformat() }
         else:
             existing_state = self.state.get(category, {})
-            self.state[category] = existing_state | state_changes | { "updated_at": datetime.now(UTC).isoformat() }
+            self.state[category] = deep_merge(existing_state, state_changes, { "updated_at": datetime.now(UTC).isoformat() })
 
         temp_path = self.path.with_suffix(".tmp")
         with open(temp_path, "w", encoding="utf-8") as file:
             json.dump(self.state, file, indent=4)
         temp_path.replace(self.path)
+
+def deep_merge(*dicts: dict) -> dict:
+    result = {}
+    for d in dicts:
+        for key, value in d.items():
+            if (
+                key in result 
+                and isinstance(result[key], dict) 
+                and isinstance(value, dict)
+            ):
+                result[key] = deep_merge(result[key], value)
+            else:
+                result[key] = deepcopy(value)
+    return result
