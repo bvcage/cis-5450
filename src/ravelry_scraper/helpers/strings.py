@@ -1,5 +1,6 @@
 import unicodedata
 from fractions import Fraction
+from datetime import datetime, UTC
 
 import inflect
 import numpy as np
@@ -7,15 +8,6 @@ import pandas as pd
 
 ie = inflect.engine()
 ie.defnoun('craft', 'crafts')
-
-def to_singular(word: str):
-    return ie.singular_noun(word) if ie.singular_noun(word) else word
-
-def to_plural(word: str):
-    if ie.singular_noun(word): 
-        return ie.plural(ie.singular_noun(word))
-    
-    return ie.plural(word)
 
 # used by pattern_needle_sizes
 def fraction_to_float(fraction: str):
@@ -47,3 +39,18 @@ def fraction_to_float(fraction: str):
             return float(whole_num) + float(Fraction(frac))
     except (ValueError, ZeroDivisionError):
         return np.nan
+
+def parse_ravelry_datetime(datetime_str: str, fmt: str = "%Y/%m/%d %H:%M:%S %z"):
+    try:
+        return datetime.strptime(datetime_str, fmt).astimezone(UTC)
+    except (ValueError, TypeError):
+        return None
+
+def to_singular(word: str):
+    return ie.singular_noun(word) if ie.singular_noun(word) else word
+
+def to_plural(word: str):
+    if ie.singular_noun(word): 
+        return ie.plural(ie.singular_noun(word))
+    
+    return ie.plural(word)
