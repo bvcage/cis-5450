@@ -30,6 +30,7 @@ class BaseTransformer:
     boolean_cols: ClassVar[list[str]] = []
     datetime_cols: ClassVar[list[str]] = ["scraped_at"]
     extract_cols: ClassVar[list[str]] = []
+    float_cols: ClassVar[list[str]] = []
     int_cols: ClassVar[list[str]] = []
 
     def __init__(self, source_path: Path | str, output_path: Path | str):
@@ -132,13 +133,19 @@ class BaseTransformer:
             cs.by_name(*self.id_cols, require_all=False).cast(pl.Int64, strict=False),
             cs.by_name(count_cols, require_all=False).cast(pl.Int64, strict=False),
             cs.by_name(*self.boolean_cols, require_all=False).cast(pl.Boolean, strict=False),
-            cs.by_name(*self.int_cols, require_all=False).cast(pl.Int64, strict=False),  
-            pl.coalesce(
-                cs.by_name(*self.datetime_cols, require_all=False).str.to_datetime(
-                    format="%Y/%m/%d %H:%M:%S %z",
-                    time_zone="UTC",
-                    strict=False
-                ),
-                cs.by_name(*self.datetime_cols, require_all=False).str.to_datetime(time_zone="UTC", strict=False),
-            )
+            cs.by_name(*self.float_cols, require_all=False).cast(pl.Float64, strict=False),
+            cs.by_name(*self.int_cols, require_all=False).cast(pl.Int64, strict=False),
+            *[
+                pl.coalesce(
+                    pl.col(datetime_col).str.to_datetime(
+                        format="%Y/%m/%d %H:%M:%S %z",
+                        time_zone="UTC",
+                        strict=False,
+                    ),
+                    pl.col(datetime_col).str.to_datetime(
+                        time_zone="UTC",
+                        strict=False,
+                    ),
+                ).alias(datetime_col) for datetime_col in self.datetime_cols
+            ]
         )
