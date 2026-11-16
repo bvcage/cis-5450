@@ -4,6 +4,7 @@
 # data files
 *.jsonl
 *.parquet
+data/raw/downloaded
 
 # log files
 *.log
