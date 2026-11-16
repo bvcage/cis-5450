@@ -69,7 +69,7 @@ def _run_pipeline(
 
     batch_size = min(max_count, batch_size)
 
-    max_consecutive_error_count = 1_000
+    max_consecutive_error_count = 100
     consecutive_error_count = 0
     total_count = 0
 
