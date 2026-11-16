@@ -1,8 +1,8 @@
 {
     "patterns": {
-        "max_id": 7485548,
-        "updated_at": "2026-11-15T21:15:49.476604+00:00",
-        "max_successful_id": 7485548,
+        "max_id": 7575641,
+        "updated_at": "2026-11-16T03:29:52.232451+00:00",
+        "max_successful_id": 7575541,
         "max_id_pre_jump": 1373996,
         "max_successful_id_pre_jump": 1370996
     },
@@ -17,26 +17,35 @@
         "updated_at": "2026-11-15T21:17:40.727364+00:00"
     },
     "projects": {
-        "updated_at": "2026-11-15T21:17:47.549615+00:00",
+        "updated_at": "2026-11-16T04:47:53.426350+00:00",
         "sort:updated": {
             "query:Sophie Scarf": "2026-11-15T02:43:15.293759+00:00",
-            "query:Oslo Hat": "2026-11-15T02:53:17.499493+00:00",
+            "query:Oslo Hat": "2026-11-16T03:50:46.075358+00:00",
             "query:Ranunculus": "2026-11-15T03:03:20.977325+00:00",
             "query:Step by Step Sweater": "2026-11-15T03:33:13.315601+00:00",
             "query:Musselburgh": "2026-11-15T03:53:30.539902+00:00",
             "query:Lakes Pullover": "2026-11-15T04:05:17.100064+00:00",
             "query:Sophie Shawl": "2026-11-15T04:31:39.985502+00:00",
             "query:Blouse No. 1": "2026-11-15T04:58:51.635614+00:00",
-            "query:Vanilla Socks on 9\" Circulars": "2026-11-15T09:35:23.513019+00:00",
+            "query:Vanilla Socks on 9\" Circulars": "2026-11-16T04:22:38.876734+00:00",
             "query:Clapotis": "2026-11-15T11:50:54.022074+00:00",
             "query:No Frills Sweater": "2026-11-15T12:33:58.233941+00:00",
-            "query:Baa-ble Hat": "2026-11-15T13:16:33.544841+00:00",
+            "query:Baa-ble Hat": "2026-11-16T03:50:35.254809+00:00",
             "query:Porcelain Sweater": "2026-11-15T13:43:33.581607+00:00",
             "query:Novice Slipover": "2026-11-15T15:03:12.661889+00:00",
-            "query:Hitofude Cardigan": "2026-11-15T17:40:15.851869+00:00",
+            "query:Hitofude Cardigan": "2026-11-16T03:50:24.372068+00:00",
             "query:The Simple Thing": "2026-11-15T18:04:36.513676+00:00",
             "query:Fetching": "2026-11-15T20:07:20.198225+00:00",
-            "query:None": "2026-11-15T21:17:47.549414+00:00"
+            "query:None": "2026-11-15T21:58:05.624514+00:00",
+            "query:Featherweight Cardigan": "2026-11-16T03:35:50.488372+00:00",
+            "query:Winters Pullover": "2026-11-16T03:44:02.681812+00:00",
+            "query:Sock Recipe: A Good, Plain Sock": "2026-11-16T03:55:58.823585+00:00",
+            "query:Barley worsted": "2026-11-16T04:06:13.841333+00:00",
+            "query:Champagne Cardigan": "2026-11-16T04:12:19.446051+00:00",
+            "query:Color Affection": "2026-11-16T04:17:59.174706+00:00",
+            "query:Classic Ribbed Hat": "2026-11-16T04:32:10.386958+00:00",
+            "query:Cumulus Blouse": "2026-11-16T04:42:05.868911+00:00",
+            "query:Storm Sweater": "2026-11-16T04:47:53.425636+00:00"
         }
     }
 }

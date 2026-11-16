@@ -22,3 +22,10 @@
     RAVELRY_USER = ""
     RAVELRY_PASSWORD = ""
     ```
+
+6. (Optional) Repo owner may provide a Google Drive link with scraped data. Add this to your `.env` file.
+    ```
+    SCRAPED_DATA_URL = ""
+    ```
+
+7. Refer to notebooks for remaining setup & additional information.

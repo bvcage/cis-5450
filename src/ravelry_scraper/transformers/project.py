@@ -31,6 +31,8 @@ class ProjectTransformer(BaseTransformer):
         'started',
         'updated_at',
     ]
+    float_cols: ClassVar[list[str]] = ['progress']
+    int_cols: ClassVar[list[str]] = ['rating']
 
     @override
     def transform(self, df: pl.LazyFrame) -> pl.LazyFrame:
