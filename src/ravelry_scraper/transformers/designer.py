@@ -9,11 +9,7 @@ from ravelry_scraper.transformers.base import BaseTransformer
 class DesignerTransformer(BaseTransformer):
     entity: str = "designer"
     must_keep_cols: ClassVar[list[str]] = []
-    unused_cols: ClassVar[list[str]] = [
-        "notes",
-        "notes_html",
-        "permalink",
-    ]
+    unused_cols: ClassVar[list[str]] = ["notes", "notes_html", "permalink"]
     id_cols: ClassVar[list[str]] = ["id"]
     datetime_cols: ClassVar[list[str]] = ["scraped_at"]
 
